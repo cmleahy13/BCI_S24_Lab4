@@ -323,7 +323,7 @@ def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_f
                 - eeg: correction of microvolt conversion
                 - epoch_times: correction of linspace to arange
             - plot_power_spectrum: 
-                - optional input of plotting (default True), determines whether spectra will be plotted
+                - optional input of is_plotting (default True), determines whether spectra will be plotted
                 - fixed normalization (by channel and not overall max)
 
 """
@@ -364,17 +364,17 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     # raw data
     raw_epochs, epoch_times, is_trial_15Hz = epoch_ssvep_data(data, eeg_data=None) # epoch data with default conditions
     raw_epochs_fft, fft_frequencies = get_frequency_spectrum(raw_epochs, fs) # frequency spectrum
-    raw_spectrum_db_15Hz, raw_spectrum_db_12Hz = plot_power_spectrum(raw_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, plotting=False) # power spectrum
+    raw_spectrum_db_15Hz, raw_spectrum_db_12Hz = plot_power_spectrum(raw_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False) # power spectrum
     
     # filtered data
     filtered_epochs = epoch_ssvep_data(data, eeg_data=filtered_data)[0] # epoch filtered data, only need epochs
     filtered_epochs_fft = get_frequency_spectrum(filtered_epochs, fs)[0] # frequency spectrum of filtered data, only need FFT of epochs
-    filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, plotting=False) # power spectrum for filtered data
+    filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False) # power spectrum for filtered data
     
     # envelope data
     envelope_epochs = epoch_ssvep_data(data, eeg_data=envelope)[0] # epoch envelope data, only need epochs
     envelope_epochs_fft = get_frequency_spectrum(envelope_epochs, fs)[0] # frequency spectrum of envelope data, only need FFT of epochs
-    envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, plotting=False) # power spectrum for envelope data
+    envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False) # power spectrum for envelope data
     
     # initialize figure
     figure, plots = plt.subplots(channels_to_plot_count,3, figsize=(12, 6))

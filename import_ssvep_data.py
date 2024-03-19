@@ -258,7 +258,7 @@ def get_frequency_spectrum(eeg_epochs, fs):
 
 #%% Part 5: Plot the Power Spectra
 
-def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, plotting=True):
+def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=True):
     """
     Description
     -----------
@@ -278,7 +278,7 @@ def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels
         Input containing which channels will be plotted.
     subject : int
         The subject for which the data will be loaded.
-    plotting : boolean, optional
+    is_plotting : boolean, optional
         A boolean input variable that determines whether the function call will produce a plot.
 
     Returns
@@ -326,7 +326,7 @@ def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels
     spectrum_db_12Hz = 10*(np.log10(normalized_event_12_power_mean))
     
     # plotting
-    if plotting == True:
+    if is_plotting == True:
         
         # inform user of plotting
         print('\nPlotting frequency data...')
