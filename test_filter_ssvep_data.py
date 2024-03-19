@@ -20,7 +20,7 @@ from filter_ssvep_data import make_bandpass_filter, filter_data, get_envelope, p
 data_dict = load_ssvep_data(subject=1,data_directory='SsvepData/')
 
 # extract data from the dictionary
-eeg = data_dict['eeg']
+eeg = data_dict['eeg'] # in volts, converted in functions (although this does not serve as an input anywhere)
 channels = list(data_dict['channels'])
 fs = data_dict['fs']
 event_durations = data_dict['event_durations']
@@ -89,6 +89,6 @@ plot_filtered_spectra(data=data_dict, filtered_data=filtered_data_15Hz, envelope
 
 '''
 Describe how the spectra change at each stage and why.
-    a. Raw data exhibit many peaks (stimuli, harmonics, artifacts, etc.). Power spectra depict prevelance of a frequency within a signal, so filtering will reduce the variety of frequencies in a signal, highlighted by the smoothed nature of the spectra after the raw data.
+    a. Raw data exhibit many peaks (stimuli, harmonics, artifacts, etc.). Power spectra depict prevelance of a frequency within a signal, so filtering will reduce the variety of frequencies in a signal, highlighted by the smoothed nature of the spectra after the raw data. Peak at 12Hz (centered around 15Hz filter) disappears at higher orders but is prominent at lower orders. Peaks about width of bandpass, higher order required for sharper peak. In envelope, higher frequencies get knocked out. Envelope takes frequency of amplitudes, and that is not limited to 15Hz; thus, there is no peak at 15Hz. Changes in amplitude are very small (low frequency), so the higher power occurs at lower frequencies and continues to decrease as frequencies increase.
 '''
 
