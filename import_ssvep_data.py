@@ -167,7 +167,7 @@ def plot_raw_data(data, subject, channels_to_plot):
 
 #%% Part 3: Extract the Epochs
 
-def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20):
+def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20, eeg_data=None):
     """
     Description
     -----------
@@ -177,6 +177,8 @@ def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20):
     ----------
     data : dict, size F, where F is the number of fields (6)
         Data from Python's MNE SSVEP dataset as a dictionary object, where the fields are relevant features of the data.
+    eeg_data : array of floats, size CxS, where C is the number of channels and S is the number of samples
+        Array containing a form of EEG data in volts.
     epoch_start_time : int, optional
         The relative time in seconds at which the epoch starts. The default is 0.
     epoch_end_time : int, optional
@@ -194,7 +196,8 @@ def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20):
     """
   
     # extract data
-    eeg = data_dict['eeg']
+    if eeg_data is None:
+        eeg_data = (data_dict['eeg'])*(10**6) # defaulting with dictionary extraction, converted to µV    
     channels = list(data_dict['channels']) # convert to list
     fs = data_dict['fs']
     event_durations = data_dict['event_durations'].astype(int) # cast to contain int instead of float
@@ -211,10 +214,10 @@ def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20):
     
         end_index = start_index + event_durations[epoch] # find the final sample index for an epoch
         
-        eeg_epochs[epoch] = eeg[:,start_index:end_index] # for the epoch, add EEG data from all channels (:) for every sample between the start and end indices (start_index:end_index)
+        eeg_epochs[epoch] = eeg_data[:,start_index:end_index] # for the epoch, add EEG data from all channels (:) for every sample between the start and end indices (start_index:end_index)
             
     # create array containing the times for each sample in the epoch
-    epoch_times = np.linspace(epoch_start_time, epoch_end_time, samples_per_epoch)
+    epoch_times = np.arange(epoch_start_time, epoch_end_time, samples_per_epoch)
     
     # create boolean array containing True if the event is a 15Hz sample, False if 12Hz
     is_trial_15Hz = np.array([True if event == '15hz' else False for event in event_types])
@@ -255,7 +258,7 @@ def get_frequency_spectrum(eeg_epochs, fs):
 
 #%% Part 5: Plot the Power Spectra
 
-def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject):
+def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, plotting=True):
     """
     Description
     -----------
@@ -275,6 +278,8 @@ def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels
         Input containing which channels will be plotted.
     subject : int
         The subject for which the data will be loaded.
+    plotting : boolean, optional
+        A boolean input variable that determines whether the function call will produce a plot.
 
     Returns
     -------
@@ -290,8 +295,8 @@ def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels
     
     # calculate power spectra
     # isolate frequency spectra by event type (12Hz or 15Hz)
-    event_15 = eeg_epochs_fft[is_trial_15Hz]
-    event_12 = eeg_epochs_fft[~is_trial_15Hz]
+    event_15 = eeg_epochs_fft[is_trial_15Hz,:,:]
+    event_12 = eeg_epochs_fft[~is_trial_15Hz,:,:]
     
     # calculate power for event type
     event_15_power = (np.abs(event_15))**2
@@ -301,51 +306,64 @@ def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels
     event_15_power_mean = event_15_power.mean(0)
     event_12_power_mean = event_12_power.mean(0)
     
+    # find maximum power by channel
+    event_15_max_power = event_15_power_mean.max(1)
+    event_12_max_power = event_12_power_mean.max(1)
+    
     # calculate normalized power for event type
-    normalized_event_15_power_mean = event_15_power_mean/(np.max(event_15_power_mean))
-    normalized_event_12_power_mean = event_12_power_mean/(np.max(event_12_power_mean))
+    # preallocate arrays
+    normalized_event_15_power_mean = np.zeros(event_15_power_mean.shape)
+    normalized_event_12_power_mean = np.zeros(event_12_power_mean.shape)
+    
+    # normalize to max (all in a channel)
+    for channel_index in range(len(channels)):
+        
+        normalized_event_15_power_mean[channel_index,:] = event_15_power_mean[channel_index,:]/event_15_max_power[channel_index]
+        normalized_event_12_power_mean[channel_index,:] = event_12_power_mean[channel_index,:]/event_12_max_power[channel_index]
     
     # calculate spectra for event type
     spectrum_db_15Hz = 10*(np.log10(normalized_event_15_power_mean))
     spectrum_db_12Hz = 10*(np.log10(normalized_event_12_power_mean))
     
     # plotting
-    # inform user of plotting
-    print('\nPlotting frequency data...')
-    
-    # isolate channel being plotted
-    channel_to_plot = [channels.index(channel_name) for channel_name in channels_to_plot]
-    
-    # set up figure
-    figure, channel_plot = plt.subplots(len(channels_to_plot), sharex=True)
-    
-    for plot_index, channel in enumerate(channel_to_plot): # plot_index to access a subplot
+    if plotting == True:
         
-        # plot the power spectra by event type
-        channel_plot[plot_index].plot(fft_frequencies, spectrum_db_12Hz[channel,:], color='red')
-        channel_plot[plot_index].plot(fft_frequencies, spectrum_db_15Hz[channel,:], color='green')
+        # inform user of plotting
+        print('\nPlotting frequency data...')
         
-        # formatting subplot
-        channel_plot[plot_index].set_xlim(0,80)
-        channel_plot[plot_index].set_xlabel('frequency (Hz)')
-        channel_plot[plot_index].tick_params(labelbottom=True) # shows axis values for each subplot when sharex=True, adapted from Stack Overflow (function and keywords)
-        channel_plot[plot_index].set_ylabel('power (dB)')
-        channel_plot[plot_index].set_title(f'Channel {channels_to_plot[plot_index]}')
-        channel_plot[plot_index].legend(['12Hz','15Hz'], loc='best')
-        channel_plot[plot_index].grid()
+        # isolate channel being plotted
+        channel_to_plot = [channels.index(channel_name) for channel_name in channels_to_plot]
         
-        # plot dotted lines at 12Hz and 15Hz
-        channel_plot[plot_index].axvline(12, color='red', linestyle='dotted')
-        channel_plot[plot_index].axvline(15, color='green', linestyle='dotted')
-    
-    # format overall plot
-    figure.suptitle(f'SSVEP Subject S{subject} Frequency Content')
-    figure.tight_layout()
-    
-    # save image
-    plt.savefig(f'SSVEP_S{subject}_frequency_content.png')
-    
-    # inform user of plotting completion
-    print('Plotting frequency data complete.')
+        # set up figure
+        figure, channel_plot = plt.subplots(len(channels_to_plot), sharex=True)
+        
+        for plot_index, channel in enumerate(channel_to_plot): # plot_index to access a subplot
+            
+            # plot the power spectra by event type
+            channel_plot[plot_index].plot(fft_frequencies, spectrum_db_12Hz[channel,:], color='red')
+            channel_plot[plot_index].plot(fft_frequencies, spectrum_db_15Hz[channel,:], color='green')
+            
+            # formatting subplot
+            channel_plot[plot_index].set_xlim(0,80)
+            channel_plot[plot_index].set_xlabel('frequency (Hz)')
+            channel_plot[plot_index].tick_params(labelbottom=True) # shows axis values for each subplot when sharex=True, adapted from Stack Overflow (function and keywords)
+            channel_plot[plot_index].set_ylabel('power (dB)')
+            channel_plot[plot_index].set_title(f'Channel {channels_to_plot[plot_index]}')
+            channel_plot[plot_index].legend(['12Hz','15Hz'], loc='best')
+            channel_plot[plot_index].grid()
+            
+            # plot dotted lines at 12Hz and 15Hz
+            channel_plot[plot_index].axvline(12, color='red', linestyle='dotted')
+            channel_plot[plot_index].axvline(15, color='green', linestyle='dotted')
+        
+        # format overall plot
+        figure.suptitle(f'SSVEP Subject S{subject} Frequency Content')
+        figure.tight_layout()
+        
+        # save image
+        plt.savefig(f'SSVEP_S{subject}_frequency_content.png')
+        
+        # inform user of plotting completion
+        print('Plotting frequency data complete.')
         
     return spectrum_db_15Hz, spectrum_db_12Hz

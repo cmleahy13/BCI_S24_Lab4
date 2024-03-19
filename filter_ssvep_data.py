@@ -3,23 +3,22 @@
 """
 Created on Fri Mar 8 08:36:51 2024
 
-@author: Claire Leahy and Ron Bryant
+filter_ssvep_data.py
+
+This file serves as the module for Lab 4 (Filtering). Included within this file are a series of function definitions that serve to manipulate raw EEG data via filtering and produce corresponding graphs, including those depicting the frequency data of these manipulated signals. The first function, make_bandpass_filter(), uses a finite impulse response bandpass filter of Hanning type to generate an array of filter coefficients to eventually be used on the EEG data and plots the impulse and frequency responses given select frequency data and a filter order. Using the generated coefficients, filter_data() filters the EEG data. The next function, get_envelope(), essentially takes the magnitude of the filtered signal to produce the envelope, which is the plotted against the filtered data. Since get_envelope() can be applied to signals that have undergone filtering using filters with varying frequency data, is is of interest to compare the potential differences in the envelopes (12Hz and 15Hz), which, along with plotting the epochs and their corresponding flash frequency, is the functionality of plot_ssvep_amplitudes(). Finally, plot_filtered_spectra() heavily implements functions generated in Lab 3 to calculate the frequency data for each of the variations of the EEG data: the raw signal, the filtered signal, and the envelope of the filtered signal. This function plots each of these signals in separate subplots for which the power spectra for the 12Hz and 15Hz stimuli are compared for several channels.
+
+@authors: Claire Leahy and Ron Bryant
 """
 
 # import packages
 from matplotlib import pylab as plt
 from scipy.signal import firwin, filtfilt, freqz, hilbert
+from import_ssvep_data import epoch_ssvep_data, get_frequency_spectrum, plot_power_spectrum
 import numpy as np
 
 #%% Part 2: Design a Filter
 
-"""
-    TODO:
-        - Is filter_type optional? Listed as having a default but also listed prior to required(?) arguments
-    
-"""
-
-def make_bandpass_filter(low_cutoff, high_cutoff, filter_type, filter_order, fs):
+def make_bandpass_filter(low_cutoff, high_cutoff, filter_type='hann', filter_order=10, fs=1000):
     '''
     Description
     -----------
@@ -31,12 +30,12 @@ def make_bandpass_filter(low_cutoff, high_cutoff, filter_type, filter_order, fs)
         The lower frequency to be used in the bandpass filter in Hz.
     high_cutoff : float 
         The higher frequency to be used in the bandpass filter in Hz.
-    filter_type : str
-        The finite impulse response filter of choice to use in the firwin() function.
-    filter_order : int
-        The order of the filter.
-    fs : int
-        The sampling freqeuncy in Hz.
+    filter_type : str, optional
+        The finite impulse response filter of choice to use in the firwin() function. The default is "hann".
+    filter_order : int, optional
+        The order of the filter. The default is 10.
+    fs : int, optional
+        The sampling freqeuncy in Hz. The default is 1000.
 
     Returns
     -------
@@ -130,34 +129,32 @@ def filter_data(data, b):
     return filtered_data
 
 #%% Part 4: Calculate the Envelope
+
 """
     TODO:
-        - Is ssvep_frequency optional? Listed after optional argument but does not specify a default --> What should the default be?
-        - Docstrings
-        - Scale of voltage?
+        - Is the figure supposed to be saved?
 """
 
-def get_envelope(data, filtered_data, channel_to_plot=None, ssvep_frequency='12'):
+def get_envelope(data, filtered_data, channel_to_plot=None, ssvep_frequency=None):
     '''
     Description
     -----------
-    Given a bandpass filtered group of eeg signals it returns the enclosing envelope of each. If a channel is selected the data for that channel is graphed.
+    Given a bandpass filtered group of EEG signals, this function returns the envelope of each, which is reflective of the signal's amplitude at each point. If a channel is selected the data for that channel is graphed.
 
     Parameters
     ----------
     data : dict, size F, where F is the number of fields (6)
         Data from Python's MNE SSVEP dataset as a dictionary object, where the fields are relevant features of the data.
-    filtered_data : 2D array of floats  N_channels x T_time_points
-        Returns each channel, bandpass filtered and converted
-    channel_to_plot : optional two character string
-        The default is None.  If specified the result of filtering
-                    the eeg_data (in data_dict) is plotted
-    ssvep_frequency : optional integer
-        The default is '12'.  It represent the simulus frequency of the SSVEP  -- either 12 or 15Hz
+    filtered_data : array of floats size CxS, where C is the number of channels and S is the number of samples
+        The filtered EEG data of each channel.
+    channel_to_plot : str, optional
+        The channel name for which the data will be plotted. The default is None.
+    ssvep_frequency : str, optional
+        The frequency of the SSVEP stimulus. The default is None.
 
     Returns
     -------
-    envelope : 2D array of floats  C_channels x T_time_points
+    envelope : array of floats size CxS, where C is the number of channels and S is the number of samples
         The evevelope of each bandpass filtered signal in microvolts.
     '''
     
@@ -176,6 +173,10 @@ def get_envelope(data, filtered_data, channel_to_plot=None, ssvep_frequency='12'
     for channel_index in range(channel_count):
         
         envelope[channel_index]=np.abs(hilbert(x=filtered_data[channel_index]))
+        
+    # data for title if ssvep_frequency is None
+    if ssvep_frequency == None:
+        ssvep_frequency = '[Unknown]'
     
     # plot the filtered data and envelope if given a channel to plot 
     if channel_to_plot != None:
@@ -207,36 +208,36 @@ def get_envelope(data, filtered_data, channel_to_plot=None, ssvep_frequency='12'
     return envelope  
 
 #%% Part 5: Plot the Amplitudes
+#%% Part 5: Plot the Amplitudes
 
 """
-
     TODO:
-        - Docstrings
-
+        - Check about channel_to_plot being optional
+        - Is the figure supposed to be saved?
 """
 
 def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_freq_a, ssvep_freq_b, subject):
     '''
     Description
     -----------
-    Plots the envelope amplitude sof the two filtered (12 or 15 Hz) signals together and adjacent to a graph indicating the period of times when each flash frequency occured.
+    Plots the envelope of the two filtered EEG signals together above a plot depicting the epochs by flash frequency.
 
     Parameters
     ----------
     data : dict, size F, where F is the number of fields (6)
         Data from Python's MNE SSVEP dataset as a dictionary object, where the fields are relevant features of the data.
-    envelope_a : 2D array of floats  C_channels x T_time_points
+    envelope_a : array of floats size CxS, where C is the number of channels and S is the number of samples
         The envelope of each bandpass (first frequency) filtered signal in microvolts.
-    envelope_b : 2D array of floats  C_channels x T_time_points
+    envelope_b : array of floats size CxS, where C is the number of channels and S is the number of samples
         The envelope of each bandpass (second frequency) filtered signal in microvolts.
-    channel_to_plot : two character string
-        The channel of the EEG envelope to plot
+    channel_to_plot : str
+        The channel name for which the data will be plotted.
     ssvep_freq_a : int
-        Corresponds to the frequency of bandpass filter in envelope_a.
+        Corresponds to the frequency of the bandpass filter for envelope_a.
     ssvep_freq_b : int
-        Corresponds to the frequency of bandpass filter in envelope_b.
+        Corresponds to the frequency of the bandpass filter for envelope_b.
     subject : int
-        Number of the subject of origin for the eeg data.
+        Number of the subject of origin for the EEG data.
 
     Returns
     -------
@@ -266,7 +267,7 @@ def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_f
     event_intervals[:,1] = event_ends/fs # convert end samples to times
     
     # initialize figure
-    figure, sub_figure = plt.subplots(2, sharex=True)
+    figure, sub_figure = plt.subplots(2, figsize=(8,6), sharex=True)
     
     # top subplot containing flash frequency over span of event
     for event_number, interval in enumerate(event_intervals):
@@ -306,336 +307,119 @@ def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_f
     
     # save figure (not given a specified title in lab handout)
     figure.savefig(f'subject_{subject}_SSVEP_amplitudes_channel_{channel_to_plot}')
-
+    
 #%% Part 6: Examine the Spectra
 
-def get_frequency_spectrum(eeg_epochs, fs, is_trial_15Hz, 
-                           max_power_12Hz=None, max_power_15Hz=None, 
-                           remove_DC=False, is_raw_data=False):
-    '''
-    Calculated the frequency spectrum across each time averaged 12Hz and 
-    15Hz epoch.  Results are in normalized dB.
+"""
+    TODO:
+        - Way to avoid adding the optional inputs (doesn't ask for channels_to_plot or subject)?
+        - Can efficiency or concision be improved?
+            - Enumerate for each of the data "types" (raw, filtered, envelope) and then call functions?
+        - Docstrings
+        - Is the figure supposed to be saved?
+        - DESCRIBE CHANGES TO LAB 3 CODE
+            - epoch_ssvep_data
+                - optional input of eeg_data (default None), eeg_data=eeg if None 
+                - eeg: correction of microvolt conversion
+                - epoch_times: correction of linspace to arange
+            - plot_power_spectrum: 
+                - optional input of plotting (default True), determines whether spectra will be plotted
+                - fixed normalization (by channel and not overall max)
 
-    Parameters
-    ----------
-    eeg_epochs : 3D array of floats  E_epochs x C_channels x T_time_points
-        DESCRIPTION. EEG voltages (microvolts) divided into epochs for each
-                    channel.
-    fs :    integer
-        DESCRIPTION.   Sampling frequency
-    is_trial_15Hz : 1D array of Booleans   1 x E_epochs
-        DESCRIPTION.  Indicates if epoch stimulus is at 
-                        15Hz (True) or 12Hz (False)
-    max_power_12Hz: optional 1D array of floats    1 x C_channels
-        DESCRIPTION. The default is None.  If not supplied, the data is 
-            assumed to be raw eeg data, and this value is calculated as the 
-            maximum power in the mean of the 12 Hz stimulated epochs for 
-            each channel and the value is returned for use in normalizing
-            the filtered and envelope data. 
-    max_power_15Hz: optional 1D array of floats    1 x C_channels
-        DESCRIPTION. The default is None.  If not supplied, the data is 
-            assumed to be raw eeg data, and this value is calculated as the 
-            maximum power in the mean of the 15 Hz stimulated epochs for 
-            each channel and the value is returned for use in normalizing
-            the filtered and envelope data. 
-    remove_DC : optional  Boolean
-        DESCRIPTION. The default is False.  Removes mean component of signal
-                before taking FFT if True.
-    is_data_raw : optional Boolean
-        DESCRIPTION. The default is False.  If True then the two max_power_xxHz
-                parameters must also be specified and the returned spectra
-                are normalized by the correwsponding max_power_xxHz parameter. 
+"""
 
-    Returns
-    -------
-    spectrum_dB_12Hz : 2D array of floats   C_channels x F_frequencies
-        DESCRIPTION.  Frequency spectrum of signals of averaged 12Hz epochs 
-                of each channel in dB normalized for highest frequency 
-                amplitude.
-    spectrum_dB_15Hz : 2D array of floats   C_channels x F_frequencies
-        DESCRIPTION.  Frequency spectrum of signals of averaged 15Hz epochs 
-                of each channel in dB normalized for highest frequency 
-                amplitude.
-    CONDITIONAL Returns
-            If is_data_raw=True  the following are also returned
-    --------------------
-    fft_frequencies : 1D array of floats    1 x F_freqeuncies
-        DESCRIPTION.  Frequencies corresponding to the two above spectra.
-    max_power_12Hz : 1D array of floats    1 x C_channels
-        DESCRIPTION.  The maximum power in the mean of the
-            12 Hz stimulate epochs for each channel of the raw data. 
-    max_power_15Hz : 1D array of floats    1 x C_channels
-        DESCRIPTION.  The maximum power in the mean of the
-            15 Hz stimulate epochs for each channel of the raw data. 
-    '''
-    # remove DC offset if specified by parameter
-    if remove_DC:
-        means = np.mean(eeg_epochs, axis = -1)
-        for time_index in range(0,eeg_epochs.shape[-1]):
-            eeg_epochs[:,:,time_index] -= means
-            
-    # perform Fourier transform on each channel in each epoch
-    eeg_epochs_fft = np.fft.rfft(eeg_epochs, axis=-1)
-    
-    # get corresponding frequencies
-    # d represents sample spacing (inverse of sample rate)
-    fft_frequencies = np.fft.rfftfreq(eeg_epochs.shape[2], d=1/fs)
-    
-    # convert spectra to units of power
-    eeg_power = eeg_epochs_fft * np.conj(eeg_epochs_fft)
-        
-    # calculations for 12 Hz Stimulus trials
-    eeg_power_12Hz = eeg_power[~is_trial_15Hz,:,:]
-    mean_power_12Hz = np.abs(np.mean(eeg_power_12Hz, axis=0))# n_channels x n_time
-    if is_raw_data:    # storing variables for normalization
-        max_power_12Hz = np.max(mean_power_12Hz, axis=1) # in each channel
-    
-    # calculations for 15 Hz Stimulus trials
-    eeg_power_15Hz = eeg_power[is_trial_15Hz,:,:]
-    mean_power_15Hz = np.abs(np.mean(eeg_power_15Hz, axis=0))
-    if is_raw_data:     # storing variables for normalization
-        max_power_15Hz = np.max(mean_power_15Hz, axis=1)
-    
-    # initialize variable to hold normalized powers
-    normalized_power_12Hz = np.zeros(mean_power_12Hz.shape)
-    
-    #normalize each channel
-    for channel_index in range(mean_power_12Hz.shape[0]):
-        normalized_power_12Hz[channel_index,:]       \
-                 = mean_power_12Hz[channel_index,:]   \
-                       /max_power_12Hz[channel_index]
-    # convert to decibel units
-    spectrum_dB_12Hz = 10 * np.log10(normalized_power_12Hz)
-    
-    # initialize variable to hold normalized powers
-    normalized_power_15Hz = np.zeros(mean_power_15Hz.shape)
-    
-    #normalize each channel
-    for channel_index in range(mean_power_15Hz.shape[0]) :
-        normalized_power_15Hz[channel_index,:]      \
-                 = mean_power_15Hz[channel_index,:]  \
-                        /max_power_15Hz[channel_index]
-    # convert to decibel units
-    spectrum_dB_15Hz = 10 * np.log10(normalized_power_15Hz)
-   
-    if is_raw_data:
-        return spectrum_dB_12Hz, spectrum_dB_15Hz, fft_frequencies, \
-                max_power_12Hz, max_power_15Hz
-    else:
-        return spectrum_dB_12Hz, spectrum_dB_15Hz
-
-
-
-
-
-
-
-def plot_filtered_spectra(data_dict, filtered_data, envelope_data,
-                          filtered_at, subject=1, 
-                          channels_to_plot=['Oz', 'Fz'],
-                          epoch_start_time=0, epoch_end_time=20):
-    '''
-    Two stimulus frequencies are compared in a single figure with a 2x3
-    series of graphs (subplots.)  For two selected channels, data of the  
-    raw, filtered (at a single frequency), and the filtered envelope are 
-    graphically compared.
-
-    Parameters
-    ----------
-    data_dict : A numpy.lib.npyio.NpzFile data dictionary. 
-        DESCRIPTION.   Includes eeg_data and necessary parameters as described
-                    in Lab 3 protocol.  eeg_data is assumed to be in Volts
-    filtered_data : 2D array of floats  C_channels x T_time_points
-        DESCRIPTION.  Returns each channel, bandpass filtered and converted
-                    to microvolts.
-    envelope_data : 2D array of floats  C_channels x T_time_points
-        DESCRIPTION.  The evevelope of each bandpass filtered signal in 
-                    microvolts
-    filtered_at : integer
-        DESCRIPTION.  Frequency of filter in Hz
-    subject : Interger
-        DESCRIPTION.  Number of the subject of origin for the eeg data.
-    channels_to_plot : optional list of two strings
-        DESCRIPTION. The default is ['Oz', 'Fz']. Correspoiond to the channels 
-                in data_dict
-    epoch_start_time : optional integer 
-        DESCRIPTION. The default is 0. Time from begining of stimulus to  
-                begin epoch.  Stimuli last 20 seconds.
-    epoch_end_time : optional integer 
-        DESCRIPTION. The default is 20. Time from begining of stimulus to  
-                end epoch.  Stimuli last 20 secondss.
-        
-    Returns
-    -------
-    None.
-
-    '''
-    
-# save event frequencies to variables (str and int)
-#    frequencies = ['12Hz', '15Hz']
-#    freqs = [12,15]
-
-# unpack data_dict
-    eeg_data = data_dict['eeg']/1e-6            # convert to microvolts
-    fs = data_dict['fs']                        # sampling frequency
-    event_samples = data_dict['event_samples']  # index to start of events
-    event_types = data_dict['event_types']      # image frequency during event
-    
-# calculate epoch parameters
-    epoch_start_indexes = event_samples + int(epoch_start_time * fs)
-    epoch_durations = int((epoch_end_time - epoch_start_time) * fs)
-    epoch_times = np.arange(epoch_start_time, epoch_end_time, 1/fs) #seconds
-    epoch_count = len(event_samples)
-    
-# Determine indicies of the channels_to_plot 
-    channels = data_dict['channels']
-    channel_count = len(channels_to_plot)
-    channel_indicies = np.zeros(channel_count).astype(int)
-    channel_indicies[0] = np.where(channels == channels_to_plot[0])[0][0]
-    channel_indicies[1] = np.where(channels == channels_to_plot[1])[0][0]
-
-# initialize epoch variables to store epochs from channels_to_plot 
-                # and indication of whether each trial is 15 Hz (True)
-    raw_channel_epochs = np.zeros( ( epoch_count, 
-                                     channel_count, 
-                                     len(epoch_times) )
-                                 ) 
-    filtered_channel_epochs = np.zeros_like(raw_channel_epochs)
-    envelope_channel_epochs = np.zeros_like(raw_channel_epochs)
-    is_trial_15Hz = np.zeros(epoch_count, dtype=bool)
-    
-# Epoch the data
-    for event_index in range(0, len(event_samples)):
-        #get start and end indicies of the event
-        start_eeg_index = epoch_start_indexes[event_index]
-        stop_eeg_index = start_eeg_index + epoch_durations
-        
-        # add epoch to respective epoch variable and indicate stimulus frequency
-        raw_channel_epochs[event_index,:,:]  \
-                = eeg_data[channel_indicies,start_eeg_index:stop_eeg_index]
-        
-        filtered_channel_epochs[event_index,:,:]  \
-                = filtered_data[channel_indicies,start_eeg_index:stop_eeg_index]
-        
-        envelope_channel_epochs[event_index,:,:]  \
-                = envelope_data[channel_indicies,start_eeg_index:stop_eeg_index]
-                
-        is_trial_15Hz[event_index] = event_types[event_index] == '15hz'
-
-
-# Calculate power spectrum (normalized after subtracting DC)
-    ## Raw, filtered, and envelope are all normalized by the same factor
-    ## derived from the raw data
-    
-    # Spectrum of raw and return freqeuncies and normalization factors
-    fft_raw_data_12Hz, fft_raw_data_15Hz, fft_frequencies,       \
-               max_power_12Hz, max_power_15Hz                     \
-            =  get_frequency_spectrum(raw_channel_epochs,fs,       \
-                                      is_trial_15Hz, remove_DC=True,\
-                                      is_raw_data=True)
-    
-    # Specturm of filtered data
-    fft_filtered_data_12Hz, fft_filtered_data_15Hz                    \
-            =  get_frequency_spectrum(filtered_channel_epochs,fs,      \
-                                      is_trial_15Hz,                    \
-                                      max_power_12Hz=max_power_12Hz,     \
-                                      max_power_15Hz=max_power_15Hz,      \
-                                      remove_DC=True)
-
-    # Spectrum of envelope
-    fft_envelope_data_12Hz, fft_envelope_data_15Hz                    \
-            =  get_frequency_spectrum(envelope_channel_epochs,fs,      \
-                                      is_trial_15Hz,                    \
-                                      max_power_12Hz=max_power_12Hz,     \
-                                      max_power_15Hz=max_power_15Hz,      \
-                                      remove_DC=True)
-
-
-# Plot the data
-    plt.figure(figsize=(10,8), clear=True )
-    
-    # Raw data, 1st Channel (default Oz)
-    ax1=plt.subplot(231)            
-    plt.plot(fft_frequencies, fft_raw_data_12Hz[0], label='12Hz Stimulus')
-    plt.plot(fft_frequencies, fft_raw_data_15Hz[0], label='15Hz Stimulus')
-    plt.xlim(0,60)
-    plt.ylim(-70,0)
-    plt.ylabel(f'Power (dB) in Channel {channels[channel_indicies[0]]}')
-    plt.xlabel('Frequency (Hz.)')
-    plt.title('Unfiltered')
-    plt.grid()
-    
-    # Filtered data, 1st Channel (default Oz)
-    plt.subplot(232, sharex=ax1, sharey=ax1)    
-    plt.plot(fft_frequencies, fft_filtered_data_12Hz[0])
-    plt.plot(fft_frequencies, fft_filtered_data_15Hz[0])
-    plt.xlabel('Frequency (Hz.)')
-    plt.title(f'Bandpass Filter at {filtered_at} Hz')
-    plt.grid()
-
-    # Envelope data, 1st Channel (default Oz)
-    plt.subplot(233, sharex=ax1, sharey=ax1)    
-    plt.plot(fft_frequencies, fft_envelope_data_12Hz[0], label='12Hz Stimulus')
-    plt.plot(fft_frequencies, fft_envelope_data_15Hz[0], label='15Hz Stimulus')
-    plt.xlabel('Frequency (Hz.)')
-    plt.title('Envelope of Filtered Signal')
-    plt.legend()
-    plt.grid()
-
-    # Raw data, 2nd Channel (default Fz)
-    plt.subplot(234, sharex=ax1, sharey=ax1)    
-    plt.plot(fft_frequencies, fft_raw_data_12Hz[1])
-    plt.plot(fft_frequencies, fft_raw_data_15Hz[1])
-    plt.ylabel(f'Power (dB) in Channel {channels[channel_indicies[1]]}')
-    plt.xlabel('Frequency (Hz.)')
-    plt.title('Unfiltered')
-    plt.grid()
-
-    # Filtered data, 2nd Channel (default Fz)
-    plt.subplot(235, sharex=ax1, sharey=ax1)    
-    plt.plot(fft_frequencies, fft_filtered_data_12Hz[1])
-    plt.plot(fft_frequencies, fft_filtered_data_15Hz[1])
-    plt.xlabel('Frequency (Hz.)')
-    plt.title(f'Bandpass Filter at {filtered_at} Hz')
-    plt.grid()
-
-    # Envelope data, 2nd Channel (default Fz)
-    plt.subplot(236, sharex=ax1, sharey=ax1)    
-    plt.plot(fft_frequencies, fft_envelope_data_12Hz[1])
-    plt.plot(fft_frequencies, fft_envelope_data_15Hz[1])
-    plt.xlabel('Frequency (Hz.)')
-    plt.title('Envelope of Filtered Signal')
-    plt.grid()
-    plt.tight_layout()
-    
-    plt.savefig(f'filt_spec_{channels[channel_indicies[0]]}_{channels[channel_indicies[1]]}',)    
-    plt.show()
-    return 
-#%% Part 6: Examine the Spectra
-
-def plot_filtered_spectra(data, filtered_data, envelope):
+def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz','Oz'], subject=1):
     '''
     Description
     -----------
+    Function to plot the filtered power spectra of raw EEG data, filtered EEG data, and the envelope of that data for electrodes of interest.
 
     Parameters
     ----------
-    data : TYPE
-        DESCRIPTION.
-    filtered_data : TYPE
-        DESCRIPTION.
-    envelope : TYPE
-        DESCRIPTION.
+    data : dict, size F, where F is the number of fields (6)
+        Data from Python's MNE SSVEP dataset as a dictionary object, where the fields are relevant features of the data.
+    filtered_data : array of floats size CxS, where C is the number of channels and S is the number of samples
+        The filtered EEG data of each channel.
+    envelope : array of floats size CxS, where C is the number of channels and S is the number of samples
+        The evevelope of each bandpass filtered signal in microvolts.
+    channels_to_plot : array of str size Cx1 where C is the number of channels, optional
+        The channel name for which the data will be plotted. The default is ['Fz','Oz'].
+    subject : int, optional
+        The subject for which the data will be loaded. The default is 1.
 
     Returns
     -------
     None.
 
     '''
-    plt.subplot(2,3,1) # Fz, raw
-    plt.subplot(2,3,2) # Fz, filtered
-    plt.subplot(2,3,3) # Fz, envelope
-    plt.subplot(2,3,4) # Oz, raw
-    plt.subplot(2,3,5) # Oz, filtered
-    plt.subplot(2,3,6) # Oz, envelope
+    
+    # extract data from the dictionary
+    channels = list(data['channels']) # convert to list
+    fs = data['fs']
+    
+    # dynamic variables
+    channels_to_plot_count = len(channels_to_plot)
+    
+    # power spectra conversions
+    # raw data
+    raw_epochs, epoch_times, is_trial_15Hz = epoch_ssvep_data(data, eeg_data=None) # epoch data with default conditions
+    raw_epochs_fft, fft_frequencies = get_frequency_spectrum(raw_epochs, fs) # frequency spectrum
+    raw_spectrum_db_15Hz, raw_spectrum_db_12Hz = plot_power_spectrum(raw_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, plotting=False) # power spectrum
+    
+    # filtered data
+    filtered_epochs = epoch_ssvep_data(data, eeg_data=filtered_data)[0] # epoch filtered data, only need epochs
+    filtered_epochs_fft = get_frequency_spectrum(filtered_epochs, fs)[0] # frequency spectrum of filtered data, only need FFT of epochs
+    filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, plotting=False) # power spectrum for filtered data
+    
+    # envelope data
+    envelope_epochs = epoch_ssvep_data(data, eeg_data=envelope)[0] # epoch envelope data, only need epochs
+    envelope_epochs_fft = get_frequency_spectrum(envelope_epochs, fs)[0] # frequency spectrum of envelope data, only need FFT of epochs
+    envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, plotting=False) # power spectrum for envelope data
+    
+    # initialize figure
+    figure, plots = plt.subplots(channels_to_plot_count,3, figsize=(12, 6))
+    
+    for row_index in range(channels_to_plot_count):
+    
+        # isolate channel to be plotted
+        channel_index = channels.index(channels_to_plot[row_index]) # channel_index in channels_to_plot corresponds to row_index
+    
+        for column_index in range(3): # 3 columns
+            
+            # raw data in first column
+            if column_index == 0:
+                plots[row_index][column_index].plot(fft_frequencies, raw_spectrum_db_12Hz[channel_index,:], color='red')
+                plots[row_index][column_index].plot(fft_frequencies, raw_spectrum_db_15Hz[channel_index,:], color='green')
+                if row_index == 0: # only plot title above first row plots
+                    plots[row_index][column_index].set_title('Raw Data Power Spectra')
+                plots[row_index][column_index].set_xlabel('Frequency (Hz)')
+                plots[row_index][column_index].set_ylabel(f'Channel {channels[channel_index]} Power (dB)') # only set y label for first plot (same axis for all plots in row)
+            
+            # filtered data in second column
+            elif column_index == 1:
+                plots[row_index][column_index].plot(fft_frequencies, filtered_spectrum_db_12Hz[channel_index,:], color='red')
+                plots[row_index][column_index].plot(fft_frequencies, filtered_spectrum_db_15Hz[channel_index,:], color='green')
+                if row_index == 0: # only plot title above first row plots
+                    plots[row_index][column_index].set_title('Filtered Data Power Spectra')
+                plots[row_index][column_index].set_xlabel('Frequency (Hz)')
+            
+            # envelope in third column
+            elif column_index == 2:
+                plots[row_index][column_index].plot(fft_frequencies, envelope_spectrum_db_12Hz[channel_index,:], color='red')
+                plots[row_index][column_index].plot(fft_frequencies, envelope_spectrum_db_15Hz[channel_index,:], color='green')
+                if row_index == 0: # only plot title above first row plots
+                    plots[row_index][column_index].set_title('Envelope Data Power Spectra')
+                plots[row_index][column_index].set_xlabel('Frequency (Hz)')
+                
+            # formatting applied to each subplot
+            plots[row_index][column_index].grid()
+            plots[row_index][column_index].set_xlim(0,80)
+            
+    # whole figure formatting
+    figure.legend(['12Hz', '15Hz'])
+    figure.suptitle(f'Subject S{subject} Frequency Data')
+    figure.tight_layout()
+    
+    # save figure (not given a specified title in lab handout)
+    plt.savefig(f'SSVEP_S{subject}_frequency_content.png')
     
