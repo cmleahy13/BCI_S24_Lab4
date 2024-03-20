@@ -198,11 +198,6 @@ def get_envelope(data, filtered_data, channel_to_plot=None, ssvep_frequency=None
 
 #%% Part 5: Plot the Amplitudes
 
-"""
-    TODO:
-        - Check about channel_to_plot being optional
-"""
-
 def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_freq_a, ssvep_freq_b, subject):
     '''
     Description
@@ -404,6 +399,7 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
             # formatting applied to each subplot
             plots[row_index][column_index].grid()
             plots[row_index][column_index].set_xlim(0,60)
+            plots[row_index][column_index].set_ylim(-120,5)
             plots[row_index][column_index].tick_params(labelbottom=True)
             
     # whole figure formatting
