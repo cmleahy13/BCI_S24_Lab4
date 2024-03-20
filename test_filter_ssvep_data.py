@@ -66,7 +66,6 @@ filtered_data_12Hz = filter_data(data=data_dict, b=filter_coefficients_12Hz)
 # filter the data with the 15Hz filter (subject 1)
 filtered_data_15Hz = filter_data(data=data_dict, b=filter_coefficients_15Hz)    
 
-
 #%% Part 4: Calculate the Envelope
 
 # envelope for the 12Hz filter (subject 1)
@@ -74,13 +73,11 @@ envelope_12Hz = get_envelope(data=data_dict, filtered_data=filtered_data_12Hz, c
 
 # envelope for the 15Hz filter (subject 1)
 envelope_15Hz = get_envelope(data=data_dict, filtered_data=filtered_data_15Hz, channel_to_plot='Oz', ssvep_frequency='15')
-    
 
 #%% Part 5: Plot the Amplitudes
 
 # plot the SSVEP amplitudes (envelope) for both filters (subject 1)
 plot_ssvep_amplitudes(data=data_dict, envelope_a=envelope_12Hz, envelope_b=envelope_15Hz, channel_to_plot='Oz', ssvep_freq_a=12, ssvep_freq_b=15, subject=1)
-
 
 #%% Part 6: Examine the Spectra
 
@@ -91,4 +88,3 @@ plot_filtered_spectra(data=data_dict, filtered_data=filtered_data_15Hz, envelope
 Describe how the spectra change at each stage and why.
     a. Raw data exhibit many peaks (stimuli, harmonics, artifacts, etc.). Power spectra depict prevelance of a frequency within a signal, so filtering will reduce the variety of frequencies in a signal, highlighted by the smoothed nature of the spectra after the raw data. Peak at 12Hz (centered around 15Hz filter) disappears at higher orders but is prominent at lower orders. Peaks about width of bandpass, higher order required for sharper peak. In envelope, higher frequencies get knocked out. Envelope takes frequency of amplitudes, and that is not limited to 15Hz; thus, there is no peak at 15Hz. Changes in amplitude are very small (low frequency), so the higher power occurs at lower frequencies and continues to decrease as frequencies increase.
 '''
-

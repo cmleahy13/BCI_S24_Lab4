@@ -316,7 +316,7 @@ def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_f
 
 """
 
-def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz','Oz'], subject=1):
+def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz','Oz'], subject=1, filter_frequency=15):
     '''
     Description
     -----------
@@ -333,7 +333,9 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     channels_to_plot : array of str size Cx1 where C is the number of channels, optional
         The channel name for which the data will be plotted. The default is ['Fz','Oz'].
     subject : int, optional
-        The subject for which the data will be loaded. The default is 1.
+        The subject for which the data will be plotted, used in plot labeling. The default is 1.
+    filter_frequency : int, optional
+        The frequency of the filter for which the data will be plotted, used in plot labeling. The default is 15.
 
     Returns
     -------
@@ -365,7 +367,7 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_max_power=raw_event_15_max_power, event_12_max_power=raw_event_12_max_power)[0:2] # power spectrum for envelope data, only taking spectra (not max normalization factors)
     
     # initialize figure
-    figure, plots = plt.subplots(channels_to_plot_count,3, figsize=(12, 6))
+    figure, plots = plt.subplots(channels_to_plot_count,3, sharex=True, sharey=True, figsize=(12, 6))
     
     for row_index in range(channels_to_plot_count):
     
@@ -401,11 +403,12 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
                 
             # formatting applied to each subplot
             plots[row_index][column_index].grid()
-            plots[row_index][column_index].set_xlim(0,80)
+            plots[row_index][column_index].set_xlim(0,60)
+            plots[row_index][column_index].tick_params(labelbottom=True)
             
     # whole figure formatting
     figure.legend(['12Hz', '15Hz'])
-    figure.suptitle(f'Subject S{subject} Frequency Data')
+    figure.suptitle(f'Subject S{subject} Frequency Data, Centered About a {filter_frequency}Hz Filter')
     figure.tight_layout()
     
     # save figure
