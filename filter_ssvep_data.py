@@ -14,6 +14,11 @@ Useful abbreviations:
     FFT: Fast Fourier Transform
 
 @authors: Claire Leahy and Ron Bryant
+
+Sources:
+    - Adding whitespace around subplots (prevents legend from interfering with titles): https://stackoverflow.com/questions/14306986/how-to-put-more-whitespace-around-my-plots
+    - Positioning legend to avoid overlap with plots or plot features: https://stackoverflow.com/questions/13894345/how-to-position-and-align-a-matplotlib-figure-legend
+    
 """
 
 # import packages
@@ -368,7 +373,7 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_max_power=raw_event_15_max_power, event_12_max_power=raw_event_12_max_power)[0:2] # power spectrum for envelope data, only taking spectra (not max normalization factors)
     
     # initialize figure
-    figure, plots = plt.subplots(channels_to_plot_count,3, sharex=True, sharey=True, figsize=(12, 7))
+    figure, plots = plt.subplots(channels_to_plot_count,3, sharex=True, sharey=True, figsize=(12, 8))
     
     for row_index in range(channels_to_plot_count):
     
@@ -409,9 +414,9 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
             plots[row_index][column_index].tick_params(labelbottom=True)
             
     # whole figure formatting
-    figure.legend(['12Hz Stimulus', '15Hz Stimulus'],loc='upper right', fontsize='x-small')
+    figure.legend(['12Hz Stimulus', '15Hz Stimulus'], fontsize='large', loc='upper center', bbox_to_anchor=(0.895,1)) # found bbox_to_anchor keyword on Stack Overflow forum
     figure.suptitle(f'Subject S{subject} Frequency Data About a {filter_frequency}Hz Filter')
-    figure.tight_layout()
+    figure.tight_layout(pad=2) # found pad keyword on Stack Overflow forum
     
     # save figure
     plt.savefig(f'SSVEP_S{subject}_frequency_content_{filter_frequency}Hz_filter.png')
