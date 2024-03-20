@@ -60,7 +60,7 @@ def load_ssvep_data(subject, data_directory):
     # printing to inform user of some data features
     print(f'Data keys: {list(data_dict.keys())}') # list conversion prevents printing data type, adapted from blog.finxter.com (list cast)
     print('\nChannels: ', data['channels'])
-    print('\nSampling frequency (Hz):', data['fs'])
+    print('\nSampling frequency (Hz):', data['fs'], '\n')
     
     # return data dictionary
     return data_dict

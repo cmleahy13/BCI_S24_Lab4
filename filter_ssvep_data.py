@@ -408,5 +408,5 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     figure.tight_layout()
     
     # save figure
-    plt.savefig(f'SSVEP_S{subject}_frequency_content.png')
+    plt.savefig(f'SSVEP_S{subject}_frequency_content_{filter_frequency}Hz_filter.png')
     
