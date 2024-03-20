@@ -7,6 +7,12 @@ filter_ssvep_data.py
 
 This file serves as the module for Lab 4 (Filtering). Included within this file are a series of function definitions that serve to manipulate raw EEG data via filtering and produce corresponding graphs, including those depicting the frequency data of these manipulated signals. The first function, make_bandpass_filter(), uses a finite impulse response bandpass filter of Hanning type to generate an array of filter coefficients to eventually be used on the EEG data and plots the impulse and frequency responses given select frequency data and a filter order. Using the generated coefficients, filter_data() filters the EEG data. The next function, get_envelope(), essentially takes the magnitude of the filtered signal to produce the envelope, which is the plotted against the filtered data. Since get_envelope() can be applied to signals that have undergone filtering using filters with varying frequency data, is is of interest to compare the potential differences in the envelopes (12Hz and 15Hz), which, along with plotting the epochs and their corresponding flash frequency, is the functionality of plot_ssvep_amplitudes(). Finally, plot_filtered_spectra() heavily implements functions generated in Lab 3 to calculate the frequency data for each of the variations of the EEG data: the raw signal, the filtered signal, and the envelope of the filtered signal. This function plots each of these signals in separate subplots for which the power spectra for the 12Hz and 15Hz stimuli are compared for several channels.
 
+Useful abbreviations:
+    EEG: electroencephalography
+    SSVEP: steady-state visual evoked potentials
+    fs: sampling frequency
+    FFT: Fast Fourier Transform
+
 @authors: Claire Leahy and Ron Bryant
 """
 
@@ -362,7 +368,7 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_max_power=raw_event_15_max_power, event_12_max_power=raw_event_12_max_power)[0:2] # power spectrum for envelope data, only taking spectra (not max normalization factors)
     
     # initialize figure
-    figure, plots = plt.subplots(channels_to_plot_count,3, sharex=True, sharey=True, figsize=(12, 6))
+    figure, plots = plt.subplots(channels_to_plot_count,3, sharex=True, sharey=True, figsize=(12, 7))
     
     for row_index in range(channels_to_plot_count):
     
@@ -403,8 +409,8 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
             plots[row_index][column_index].tick_params(labelbottom=True)
             
     # whole figure formatting
-    figure.legend(['12Hz', '15Hz'])
-    figure.suptitle(f'Subject S{subject} Frequency Data, Centered About a {filter_frequency}Hz Filter')
+    figure.legend(['12Hz Stimulus', '15Hz Stimulus'],loc='upper right', fontsize='x-small')
+    figure.suptitle(f'Subject S{subject} Frequency Data About a {filter_frequency}Hz Filter')
     figure.tight_layout()
     
     # save figure

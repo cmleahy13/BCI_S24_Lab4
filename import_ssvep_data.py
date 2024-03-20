@@ -13,7 +13,7 @@ Useful abbreviations:
     fs: sampling frequency
     FFT: Fast Fourier Transform
 
-@authors: Peijin Chen and Claire Leahy
+@authors: Peijin Chen and Claire Leahy ***UPDATED BY RON BRYANT AND CLAIRE LEAHY***
 
 Sources:
 

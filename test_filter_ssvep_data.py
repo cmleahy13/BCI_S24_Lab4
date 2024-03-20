@@ -7,6 +7,12 @@ test_filter_ssvep_data.py
 
 This file serves as the test script for Lab 4 (Filtering). The data from Python's MNE SSVEP dataset are loaded utilizing a function developed in Lab 3. Subsequently, the functions described in filter_ssvep_data.py are called for subject 1. The bandpass filter is generated at both 12Hz and 15Hz frequencies, and the EEG data is then passed through each of these filters. The envelopes, therefore, may also be calculated for the filtered data that had undergone filtering for each of these stimulus frequencies. These envelopes are then compared graphically. Finally, the power spectra for raw, filtered, and envelope data are plotted under the consideration of the 15Hz filter to depict differences between the two stimuli frequencies within the frequency space.
 
+Useful abbreviations:
+    EEG: electroencephalography
+    SSVEP: steady-state visual evoked potentials
+    fs: sampling frequency
+    FFT: Fast Fourier Transform
+
 @authors: Claire Leahy and Ron Bryant
 """
 
