@@ -14,10 +14,6 @@ Useful abbreviations:
     FFT: Fast Fourier Transform
 
 @authors: Claire Leahy and Ron Bryant
-
-Sources:
-    - Adding whitespace around subplots (prevents legend from interfering with titles): https://stackoverflow.com/questions/14306986/how-to-put-more-whitespace-around-my-plots
-    - Positioning legend to avoid overlap with plots or plot features: https://stackoverflow.com/questions/13894345/how-to-position-and-align-a-matplotlib-figure-legend
     
 """
 
@@ -305,20 +301,11 @@ def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_f
 
 """
     TODO:
-        - Way to avoid adding the optional inputs (doesn't ask for channels_to_plot or subject)?
+        - Way to avoid adding the optional inputs (doesn't ask for channels_to_plot, subject, or filter_frequency)?
         - Can efficiency or concision be improved?
             - Enumerate for each of the data "types" (raw, filtered, envelope) and then call functions?
         - Comment out figure after code complete
-        - DESCRIBE CHANGES TO LAB 3 CODE
-            - epoch_ssvep_data
-                - optional input of eeg_data (default None), eeg_data=eeg if None 
-                - eeg: correction of microvolt conversion
-                - epoch_times: correction of linspace to arange
-            - plot_power_spectrum: 
-                - optional input of is_plotting (default True), determines whether spectra will be plotted
-                - fixed normalization (by channel and not overall max)
-                - returned event_15_max_power and event_12_max_power: Allows them to serve as normalization factor to the raw data
-                - optional inputs of event_15_max_power and event_12_max_power (defaults None): If not given an input (or None is entered), these variables are calculated as they were in Lab 3 to find the normalization factors for each channel. Otherwise, these values can now serve as normalization factors to a different set of data (such as normalizing the filtered data or the envelope to the raw data instead of itself)
+        - Normalize to raw or each individual dataset?
 
 """
 
@@ -326,7 +313,7 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     '''
     Description
     -----------
-    Function to plot the filtered power spectra of raw EEG data, filtered EEG data, and the envelope of that data for electrodes of interest.
+    Function to plot the filtered power spectra of raw EEG data, filtered EEG data, and the envelope of that data for electrodes of interest. This code relies upon functions (some of which were modified) from Lab 3.
 
     Parameters
     ----------
@@ -360,17 +347,17 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     # raw data
     raw_epochs, epoch_times, is_trial_15Hz = epoch_ssvep_data(data, eeg_data=None) # epoch data with default conditions
     raw_epochs_fft, fft_frequencies = get_frequency_spectrum(raw_epochs, fs) # frequency spectrum
-    raw_spectrum_db_15Hz, raw_spectrum_db_12Hz, raw_event_15_max_power, raw_event_12_max_power = plot_power_spectrum(raw_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_max_power=None, event_12_max_power=None) # power spectrum
+    raw_spectrum_db_15Hz, raw_spectrum_db_12Hz, raw_event_15_normalization_factor, raw_event_12_normalization_factor = plot_power_spectrum(raw_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=None, event_12_normalization_factor=None) # power spectrum
     
     # filtered data
     filtered_epochs = epoch_ssvep_data(data, eeg_data=filtered_data)[0] # epoch filtered data, only need epochs
     filtered_epochs_fft = get_frequency_spectrum(filtered_epochs, fs)[0] # frequency spectrum of filtered data, only need FFT of epochs
-    filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_max_power=raw_event_15_max_power, event_12_max_power=raw_event_12_max_power)[0:2] # power spectrum for envelope data, only taking spectra (not max normalization factors)
+    filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # power spectrum for envelope data, only taking spectra (not max normalization factors)
     
     # envelope data
     envelope_epochs = epoch_ssvep_data(data, eeg_data=envelope)[0] # epoch envelope data, only need epochs
     envelope_epochs_fft = get_frequency_spectrum(envelope_epochs, fs)[0] # frequency spectrum of envelope data, only need FFT of epochs
-    envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_max_power=raw_event_15_max_power, event_12_max_power=raw_event_12_max_power)[0:2] # power spectrum for envelope data, only taking spectra (not max normalization factors)
+    envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # power spectrum for envelope data, only taking spectra (not max normalization factors)
     
     # initialize figure
     figure, plots = plt.subplots(channels_to_plot_count,3, sharex=True, sharey=True, figsize=(12, 8))
@@ -414,9 +401,8 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
             plots[row_index][column_index].tick_params(labelbottom=True)
             
     # whole figure formatting
-    figure.legend(['12Hz Stimulus', '15Hz Stimulus'], fontsize='large', loc='upper center', bbox_to_anchor=(0.895,1)) # found bbox_to_anchor keyword on Stack Overflow forum
-    figure.suptitle(f'Subject S{subject} Frequency Data About a {filter_frequency}Hz Filter')
-    figure.tight_layout(pad=2) # found pad keyword on Stack Overflow forum
+    figure.legend(['12Hz', '15Hz'], title='Stimulus', loc='center right')
+    figure.suptitle(f'Subject S{subject} Frequency Data with a {filter_frequency}Hz Filter')
     
     # save figure
     plt.savefig(f'SSVEP_S{subject}_frequency_content_{filter_frequency}Hz_filter.png')
