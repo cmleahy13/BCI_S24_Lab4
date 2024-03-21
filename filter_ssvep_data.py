@@ -304,8 +304,6 @@ def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_f
         - Way to avoid adding the optional inputs (doesn't ask for channels_to_plot, subject, or filter_frequency)?
         - Can efficiency or concision be improved?
             - Enumerate for each of the data "types" (raw, filtered, envelope) and then call functions?
-        - Comment out figure after code complete
-        - Normalize to raw or each individual dataset?
 
 """
 
@@ -352,12 +350,14 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     # filtered data
     filtered_epochs = epoch_ssvep_data(data, eeg_data=filtered_data)[0] # epoch filtered data, only need epochs
     filtered_epochs_fft = get_frequency_spectrum(filtered_epochs, fs)[0] # frequency spectrum of filtered data, only need FFT of epochs
-    filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # power spectrum for envelope data, only taking spectra (not max normalization factors)
+    # filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # normalized to raw spectra
+    filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=None, event_12_normalization_factor=None)[0:2] # normalized to itself
     
     # envelope data
     envelope_epochs = epoch_ssvep_data(data, eeg_data=envelope)[0] # epoch envelope data, only need epochs
     envelope_epochs_fft = get_frequency_spectrum(envelope_epochs, fs)[0] # frequency spectrum of envelope data, only need FFT of epochs
-    envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # power spectrum for envelope data, only taking spectra (not max normalization factors)
+    # envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # normalized to raw spectra
+    envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=None, event_12_normalization_factor=None)[0:2] # normalized to itself
     
     # initialize figure
     figure, plots = plt.subplots(channels_to_plot_count,3, sharex=True, sharey=True, figsize=(12, 8))
@@ -405,5 +405,5 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     figure.suptitle(f'Subject S{subject} Frequency Data with a {filter_frequency}Hz Filter')
     
     # save figure
-    plt.savefig(f'SSVEP_S{subject}_frequency_content_{filter_frequency}Hz_filter.png')
+    # plt.savefig(f'SSVEP_S{subject}_frequency_content_{filter_frequency}Hz_filter.png')
     
