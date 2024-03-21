@@ -172,6 +172,9 @@ def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20, eeg_data=
     Description
     -----------
     Function that takes in the data dictionary as well as relative start and end times for a given epoch to organize the EEG data by channel and event type.
+    
+    ***UPDATES***
+    Optional input of eeg_data added (default is None). EEG data has been converted to microvolts where applicable. epoch_times has been corrected (no longer uses linspace).
 
     Parameters
     ----------
@@ -183,6 +186,8 @@ def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20, eeg_data=
         The relative time in seconds at which the epoch starts. The default is 0.
     epoch_end_time : int, optional
         The relative time in seconds at which the epoch ends. The default is 20.
+    eeg_data : array of floats, size CxS, where C is the number of channels and S is the number of samples, optional
+        An explicit entry of the EEG data that will be epoched. The default is None.
 
     Returns
     -------
@@ -217,7 +222,7 @@ def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20, eeg_data=
         eeg_epochs[epoch] = eeg_data[:,start_index:end_index] # for the epoch, add EEG data from all channels (:) for every sample between the start and end indices (start_index:end_index)
             
     # create array containing the times for each sample in the epoch
-    epoch_times = np.arange(epoch_start_time, epoch_end_time, samples_per_epoch)
+    epoch_times = np.arange(epoch_start_time, epoch_end_time, 1/fs)
     
     # create boolean array containing True if the event is a 15Hz sample, False if 12Hz
     is_trial_15Hz = np.array([True if event == '15hz' else False for event in event_types])
@@ -258,11 +263,14 @@ def get_frequency_spectrum(eeg_epochs, fs):
 
 #%% Part 5: Plot the Power Spectra
 
-def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=True, event_15_max_power=None, event_12_max_power=None):
+def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=True, event_15_normalization_factor=None, event_12_normalization_factor=None):
     """
     Description
     -----------
     Function that uses the Fourier Transform of the epoched EEG data to compute and plot the power spectra of different electrodes.
+    
+    ***UPDATES***
+    Optional input of is_plotting added (default is True) that gives the user the option to suppress the plot when generating the power spectra. Optional inputs of event_15_normalization_factor and event_12_normalization_factor added (defaults are None) that give the user the option to normalize the epoched data to a different dataset. event_15_normalization_factor and event_12_normalization_factor are also outputs and give the factors to which the data were normalized (which may or may not contain the maximum mean powers for the dataset of interest depending on the input).
 
     Parameters
     ----------
@@ -279,22 +287,22 @@ def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels
     subject : int
         The subject for which the data will be loaded.
     is_plotting : boolean, optional
-        A boolean input variable that determines whether the function call will produce a plot.
-    event_15_max_power : array size Cx1, where C is the number of channels, optional
+        A boolean input variable that determines whether the function call will produce a plot. The default is True.
+    event_15_normalization_factor : array of floats, size Cx1, where C is the number of channels, optional
         An array containing the maximum power for the 15Hz stimulus at each channel to serve as a normalization factor. The default is None.
-    event_12_max_power : array size Cx1, where C is the number of channels, optional
+    event_12_normalization_factor : array of floats, size Cx1, where C is the number of channels, optional
         An array containing the maximum power for the 12Hz stimulus at each channel to serve as a normalization factor. The default is None.
 
     Returns
     -------
-    spectrum_db_15Hz : array of float, size Cx((fs/2)+1), where C is the number of channels and fs is the sampling frequency
+    spectrum_db_15Hz : array of floats, size Cx((fs/2)+1), where C is the number of channels and fs is the sampling frequency
         Array containing the power spectrum of the 15Hz events for each channel.
-    spectrum_db_12Hz : array of float, size Cx((fs/2)+1), where C is the number of channels and fs is the sampling frequency
+    spectrum_db_12Hz : array of floats, size Cx((fs/2)+1), where C is the number of channels and fs is the sampling frequency
         Array containing the power spectrum of the 12Hz events for each channel.
-    event_15_max_power : array size Cx1, where C is the number of channels, optional
-        An array containing the maximum power for the 15Hz stimulus at each channel that can serve as a normalization factor for other data.
-    event_12_max_power : array size Cx1, where C is the number of channels, optional
-        An array containing the maximum power for the 12Hz stimulus at each channel that can serve as a normalization factor for other data.
+    event_15_normalization_factor : array of floats, size Cx1, where C is the number of channels, optional
+        An array containing the maximum power of some dataset for the 15Hz stimulus at each channel that can serve as a normalization factor for other data.
+    event_12_normalization_factor : array of floats, size Cx1, where C is the number of channels, optional
+        An array containing the maximum power of some dataset for the 12Hz stimulus at each channel that can serve as a normalization factor for other data.
 
     """
 
@@ -315,11 +323,14 @@ def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels
     event_12_power_mean = event_12_power.mean(0)
     
     # allow data to be normalized to itself by finding the maximum power in each channel for the data
-    if event_15_max_power is None:
+    if event_15_normalization_factor is None:
     
         # find maximum power by channel
-        event_15_max_power = event_15_power_mean.max(1)
-        event_12_max_power = event_12_power_mean.max(1)
+        event_15_normalization_factor = event_15_power_mean.max(1)
+    
+    if event_12_normalization_factor is None:
+        # find maximum power by channel
+        event_12_normalization_factor = event_12_power_mean.max(1)
     
     # calculate normalized power for event type
     # preallocate arrays    
@@ -329,8 +340,8 @@ def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels
     # normalize to max (all in a channel) - uses the given input if not None
     for channel_index in range(len(channels)):
         
-        normalized_event_15_power_mean[channel_index,:] = event_15_power_mean[channel_index,:]/event_15_max_power[channel_index]
-        normalized_event_12_power_mean[channel_index,:] = event_12_power_mean[channel_index,:]/event_12_max_power[channel_index]
+        normalized_event_15_power_mean[channel_index,:] = event_15_power_mean[channel_index,:]/event_15_normalization_factor[channel_index]
+        normalized_event_12_power_mean[channel_index,:] = event_12_power_mean[channel_index,:]/event_12_normalization_factor[channel_index]
     
     # calculate spectra for event type
     spectrum_db_15Hz = 10*(np.log10(normalized_event_15_power_mean))
@@ -377,4 +388,4 @@ def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels
         # inform user of plotting completion
         print('Plotting frequency data complete.')
         
-    return spectrum_db_15Hz, spectrum_db_12Hz, event_15_max_power, event_12_max_power    
+    return spectrum_db_15Hz, spectrum_db_12Hz, event_15_normalization_factor, event_12_normalization_factor    
