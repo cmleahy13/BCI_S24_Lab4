@@ -12,6 +12,8 @@ Useful abbreviations:
     SSVEP: steady-state visual evoked potentials
     fs: sampling frequency
     FFT: Fast Fourier Transform
+    FIR: Finite impulse response
+    IIR: Infinite impulse response
 
 @authors: Claire Leahy and Ron Bryant
     
@@ -304,7 +306,6 @@ def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_f
         - Way to avoid adding the optional inputs (doesn't ask for channels_to_plot, subject, or filter_frequency)?
         - Can efficiency or concision be improved?
             - Enumerate for each of the data "types" (raw, filtered, envelope) and then call functions?
-
 """
 
 def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz','Oz'], subject=1, filter_frequency=15):
@@ -402,8 +403,8 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
             
     # whole figure formatting
     figure.legend(['12Hz', '15Hz'], title='Stimulus', loc='center right')
-    figure.suptitle(f'Subject S{subject} Frequency Data with a {filter_frequency}Hz Filter')
+    figure.suptitle(f'Subject {subject} Power Spectra with a {filter_frequency}Hz Bandpass Filter')
     
     # save figure
-    # plt.savefig(f'SSVEP_S{subject}_frequency_content_{filter_frequency}Hz_filter.png')
+    plt.savefig(f'SSVEP_S{subject}_frequency_content_{filter_frequency}Hz_filter.png')
     
