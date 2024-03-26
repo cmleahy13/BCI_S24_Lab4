@@ -303,12 +303,10 @@ def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_f
 
 """
     TODO:
-        - Way to avoid adding the optional inputs (doesn't ask for channels_to_plot, subject, or filter_frequency)?
-        - Can efficiency or concision be improved?
-            - Enumerate for each of the data "types" (raw, filtered, envelope) and then call functions?
+        - Way to avoid adding the optional inputs (doesn't ask for subject or filter_frequency)?
 """
 
-def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz','Oz'], subject=1, filter_frequency=15):
+def plot_filtered_spectra(data, filtered_data, envelope, channels=['Fz','Oz'], subject=1, filter_frequency=15):
     '''
     Description
     -----------
@@ -322,7 +320,7 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
         The filtered EEG data of each channel.
     envelope : array of floats size CxS, where C is the number of channels and S is the number of samples
         The evevelope of each bandpass filtered signal in microvolts.
-    channels_to_plot : array of str size Cx1 where C is the number of channels, optional
+    channels : array of str size Cx1 where C is the number of channels, optional
         The channel name for which the data will be plotted. The default is ['Fz','Oz'].
     subject : int, optional
         The subject for which the data will be plotted, used in plot labeling. The default is 1.
@@ -336,62 +334,68 @@ def plot_filtered_spectra(data, filtered_data, envelope, channels_to_plot=['Fz',
     '''
     
     # extract data from the dictionary
-    channels = list(data['channels']) # convert to list
+    all_channels = list(data['channels']) # convert to list
     fs = data['fs']
     
     # dynamic variables
-    channels_to_plot_count = len(channels_to_plot)
+    channel_count = len(channels)
     
     # power spectra conversions
     # raw data
     raw_epochs, epoch_times, is_trial_15Hz = epoch_ssvep_data(data, eeg_data=None) # epoch data with default conditions
     raw_epochs_fft, fft_frequencies = get_frequency_spectrum(raw_epochs, fs) # frequency spectrum
-    raw_spectrum_db_15Hz, raw_spectrum_db_12Hz, raw_event_15_normalization_factor, raw_event_12_normalization_factor = plot_power_spectrum(raw_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=None, event_12_normalization_factor=None) # power spectrum
+    raw_spectrum_db_15Hz, raw_spectrum_db_12Hz, raw_event_15_normalization_factor, raw_event_12_normalization_factor = plot_power_spectrum(raw_epochs_fft, fft_frequencies, is_trial_15Hz, all_channels, channels, subject, is_plotting=False, event_15_normalization_factor=None, event_12_normalization_factor=None) # power spectrum
     
     # filtered data
     filtered_epochs = epoch_ssvep_data(data, eeg_data=filtered_data)[0] # epoch filtered data, only need epochs
     filtered_epochs_fft = get_frequency_spectrum(filtered_epochs, fs)[0] # frequency spectrum of filtered data, only need FFT of epochs
-    # filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # normalized to raw spectra
-    filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=None, event_12_normalization_factor=None)[0:2] # normalized to itself
+    # filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, all_channels, channels, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # normalized to raw spectra
+    filtered_spectrum_db_15Hz, filtered_spectrum_db_12Hz = plot_power_spectrum(filtered_epochs_fft, fft_frequencies, is_trial_15Hz, all_channels, channels, subject, is_plotting=False, event_15_normalization_factor=None, event_12_normalization_factor=None)[0:2] # normalized to itself
     
     # envelope data
     envelope_epochs = epoch_ssvep_data(data, eeg_data=envelope)[0] # epoch envelope data, only need epochs
     envelope_epochs_fft = get_frequency_spectrum(envelope_epochs, fs)[0] # frequency spectrum of envelope data, only need FFT of epochs
-    # envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # normalized to raw spectra
-    envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=False, event_15_normalization_factor=None, event_12_normalization_factor=None)[0:2] # normalized to itself
+    # envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, all_channels, channels, subject, is_plotting=False, event_15_normalization_factor=raw_event_15_normalization_factor, event_12_normalization_factor=raw_event_12_normalization_factor)[0:2] # normalized to raw spectra
+    envelope_spectrum_db_15Hz, envelope_spectrum_db_12Hz = plot_power_spectrum(envelope_epochs_fft, fft_frequencies, is_trial_15Hz, all_channels, channels, subject, is_plotting=False, event_15_normalization_factor=None, event_12_normalization_factor=None)[0:2] # normalized to itself
     
     # initialize figure
-    figure, plots = plt.subplots(channels_to_plot_count,3, sharex=True, sharey=True, figsize=(12, 8))
+    figure, plots = plt.subplots(channel_count,3, sharex=True, sharey=True, figsize=(12, 8))
     
-    for row_index in range(channels_to_plot_count):
+    for row_index in range(channel_count):
     
         # isolate channel to be plotted
-        channel_index = channels.index(channels_to_plot[row_index]) # channel_index in channels_to_plot corresponds to row_index
+        channel_index = all_channels.index(channels[row_index]) # channel_index in channels_to_plot corresponds to row_index
     
         for column_index in range(3): # 3 columns
             
             # raw data in first column
             if column_index == 0:
+                
                 plots[row_index][column_index].plot(fft_frequencies, raw_spectrum_db_12Hz[channel_index,:], color='red')
                 plots[row_index][column_index].plot(fft_frequencies, raw_spectrum_db_15Hz[channel_index,:], color='green')
                 if row_index == 0: # only plot title above first row plots
                     plots[row_index][column_index].set_title('Raw Data Power Spectra')
                 plots[row_index][column_index].set_xlabel('Frequency (Hz)')
-                plots[row_index][column_index].set_ylabel(f'Channel {channels[channel_index]} Power (dB)') # only set y label for first plot (same axis for all plots in row)
+                plots[row_index][column_index].set_ylabel(f'Channel {all_channels[channel_index]} Power (dB)') # only set y label for first plot (same axis for all plots in row)
             
             # filtered data in second column
             elif column_index == 1:
+                
                 plots[row_index][column_index].plot(fft_frequencies, filtered_spectrum_db_12Hz[channel_index,:], color='red')
                 plots[row_index][column_index].plot(fft_frequencies, filtered_spectrum_db_15Hz[channel_index,:], color='green')
+                
                 if row_index == 0: # only plot title above first row plots
                     plots[row_index][column_index].set_title('Filtered Data Power Spectra')
                 plots[row_index][column_index].set_xlabel('Frequency (Hz)')
             
             # envelope in third column
             elif column_index == 2:
+                
                 plots[row_index][column_index].plot(fft_frequencies, envelope_spectrum_db_12Hz[channel_index,:], color='red')
                 plots[row_index][column_index].plot(fft_frequencies, envelope_spectrum_db_15Hz[channel_index,:], color='green')
+                
                 if row_index == 0: # only plot title above first row plots
+                
                     plots[row_index][column_index].set_title('Envelope Data Power Spectra')
                 plots[row_index][column_index].set_xlabel('Frequency (Hz)')
                 
