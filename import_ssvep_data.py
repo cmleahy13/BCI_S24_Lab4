@@ -1,481 +1,391 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Sun Feb 25 22:00:05 2024
+
 import_ssvep_data.py
 
-A python module to support analysis of SSVEP data. Contains functions to load 
-SSVEP data, plot raw SSVEP data, extract epochs of SSVEP data, calculate 
-frequency spectra through performing a Fourier transform on SSVEP data, and plot
-the mean frequency spectra for channels Oz and Fz. An additional function to 
-plot the harmonics for this SSVEP data across all channels is also included.
+This file serves as the module script for BCI Spring 2024 Lab 03. Below, several functions are defined with the ultimate goals of loading and plotting SSVEP data in both the time and frequency domains. load_ssvep_data() allows the user to load in all data relevant to this lab, the return of which is utilized across multiple of the remaining functions. The plot_raw_data() function plots aspects of the data, such as EEG, in the time domain, as well as identifies the frequency of the sample. epoch_ssvep_data() isolates fragments of the data based on periods of time in which the sample is experiencing a 12Hz or 15Hz trial. Finally, get_frequency_spectrum() and plot_power_spectrum() are two functions that are used to convert the aforementioned data into the frequency domain and plot it.
 
-Created on Thu Feb 22 17:07:14 2024
+Useful abbreviations:
+    EEG: electroencephalography
+    SSVEP: steady-state visual evoked potentials
+    fs: sampling frequency
+    FFT: Fast Fourier Transform
 
-@author: Ron Bryant and Alaina Birney
+@authors: Peijin Chen and Claire Leahy ***UPDATED BY RON BRYANT AND CLAIRE LEAHY***
+
+Sources:
+
+    - Improving efficiency of updating an array: ChatGPT
+    - Understanding vectorization to improve efficiency: https://moez-62905.medium.com/mastering-numpy-tips-and-tricks-for-efficient-numerical-computing-624d44b4bebd
+    - Understanding enumerate to improve efficiency: https://blog.hubspot.com/website/python-enumerate
+    - Avoiding printing "dict_keys" data type: https://blog.finxter.com/python-print-dictionary-keys-without-dict_keys/
+    - Setting axis tickmarks: ChatGPT
+    - Adding tickmarks when sharex=True: https://stackoverflow.com/questions/4209467/matplotlib-share-x-axis-but-dont-show-x-axis-tick-labels-for-both-just-one
+    
 """
+
+# import packages
 import numpy as np
 from matplotlib import pyplot as plt
-import math
-import scipy 
 
-#%%  Cell 1: Load the Data
-def load_ssvep_data(subject, relative_data_path='./SsvepData/'):
-    '''
-    Function to load in the .npz data file containing EEG data for a given 
-    subject for SSVEP analysis.
-    
+#%% Part 1: Load the Data
+def load_ssvep_data(subject, data_directory):
+    """
+    Description
+    -----------
+    Function to load in the SSVEP data from Python's MNE dataset as a dictionary.
+
     Parameters
     ----------
-    subject : Int, required.
-        The number of the subject for whom data will be loaded.
-    relative_data_path : Str, optional
-        The relative path to the data files. The default is './SsvepData/'.
+    subject : int
+        The subject for which the data will be loaded.
+    data_directory : string,
+        The local directory in which the SSVEP data is contained.
 
     Returns
     -------
-    data_dict : numpy.lib.npyio.NpzFile of size f where f represents the number
-    of arrays within this object. 
-        This object behaves similarly to a dictionary and can be accessed using 
-        keys. Contains raw, unfiltered information about the dataset. Each 
-        array within the dictionary holds information corresponding to a 
-        different field. In our case, f=6 and corresponds to: eeg data in volts 
-        ("EEG"), channels ("channels"), sampling frequency in Hz ("fs"), the 
-        sample when each event occured ("event_samples"), the event durations 
-        ("event_durations"), and the event types ("event_types").
-        
+    data_dict : dict, size F, where F is the number of fields (6)
+        Data from Python's MNE SSVEP dataset as a dictionary object, where the fields are relevant features of the data.
 
-    '''
-    # Load dictionary
-    data_dict = np.load(f'{relative_data_path}SSVEP_S{subject}.npz',
-                        allow_pickle=True)
+    """
+    
+    # load data
+    data = np.load(f'{data_directory}SSVEP_S{subject}.npz', allow_pickle=True) # lib.npyio.NpzFile data type
+    
+    # explicitly convert from existing data type to dict to avoid potential complications
+    data_dict = {'eeg': data['eeg'], 'channels': data['channels'], 'fs': data['fs'], 'event_samples': data['event_samples'], 'event_durations': data['event_durations'], 'event_types': data['event_types']}
+    
+    # printing to inform user of some data features
+    print(f'Data keys: {list(data_dict.keys())}') # list conversion prevents printing data type, adapted from blog.finxter.com (list cast)
+    print('\nChannels: ', data['channels'])
+    print('\nSampling frequency (Hz):', data['fs'], '\n')
+    
+    # return data dictionary
     return data_dict
 
+#%% Part 2: Plot the Data
 
-#%% Cell 2: Plot Raw EEG Data
-def plot_raw_data(data_dict, subject, channels_to_plot):
-    '''
-    A function to plot raw EEG data for the given channels, for a given subject.
-    Results in a figure with two subplots. The top subplot shows events as
-    horizontal lines with dots at the start and end times for each event. The
-    bottom subplot shows EEG voltage for each specified channel as a function
-    of time. Additionally, an image of the plot is saved to 
-    SSVEP_S{subject}_rawdata.png within the current directory.
+def plot_raw_data(data, subject, channels_to_plot):
+    """
+    Description
+    -----------
+    Function that plots the EEG data and the event type (12Hz or 15Hz) in the time domain.
 
     Parameters
     ----------
-    data_dict : numpy.lib.npyio.NpzFile of size F where F represents the number of 
-    arrays within this object. Required.
-        This object behaves similarly to a dictionary and can be accessed using 
-        keys. Contains raw, unfiltered information about the dataset. Each 
-        array within the dictionary holds information corresponding to a 
-        different field. In our case, f=6 and corresponds to: eeg data in volts 
-        ("EEG"), channels ("channels"), sampling frequency in Hz ("fs"), the 
-        sample when each event occured ("event_samples"), the event durations 
-        ("event_durations"), and the event types ("event_types").
-    subject : Int, required.
-        The number of the subject for whom data will be plotted.
-    channels_to_plot : List of str. Size C where C represents the number of 
-    channels for which data will be plotted   Required.
-        The channels that EEG data will be plotted for. (Recommended that this 
-        be limited to 2 channels to avoid crowding of figure.)
+    data : dict, size F, where F is the number of fields (6)
+        Data from Python's MNE SSVEP dataset as a dictionary object, where the fields are relevant features of the data.
+    subject : int
+        The subject for which the data will be plotted.
+    channels_to_plot : list, size Cx1, where C is the number of channels to be plotted
+        Input containing which channels will be plotted.
 
     Returns
     -------
     None.
 
-    '''
-    #unpack data_dict
-    eeg_data = data_dict['eeg']/1e-6   # convert to microvolts
-    channels = data_dict['channels']   # channel names
-    fs = data_dict['fs']                # sampling frequency
-    event_times = data_dict['event_samples']/fs          # convert to seconds
-    event_types = data_dict['event_types']        # frequency of event
-    event_durations = data_dict['event_durations']/fs    # convert to seconds
-    T = eeg_data.shape[1]/fs     # Total time
-    t = np.arange(0,T,1/fs)      # time axis
+    """
+    
+    # extract data
+    eeg = data['eeg']
+    channels = list(data['channels'])
+    fs = data['fs']
+    event_durations = data['event_durations']
+    event_samples = data['event_samples']
+    event_types = data['event_types']
+    
+    # find all sample times
+    # code adapted from ChatGPT based on our original code (efficiency)
+    t = np.arange(len(eeg.T))*(1/fs) # number of samples spaced by 1, subsequently converted to time
+    
+    # find event samples and times
+    # code adapted from ChatGPT based on our original code (efficiency)
+    event_intervals = np.zeros([len(event_samples),2]) # array to contain interval times
+    # find the end sample indices of the events
+    event_ends = event_samples + event_durations # event_samples contains the start samples
+    # for each event (:), 0 is the interval start time, and 1 is the interval end time
+    event_intervals[:,0] = event_samples/fs # convert start samples to times
+    event_intervals[:,1] = event_ends/fs # convert end samples to times
+    
+    # inform user of plotting
+    print('\nPlotting raw data...')
     
     # initialize figure
-    plt.figure(1, clear=True)    
+    figure, sub_figure = plt.subplots(2, sharex=True)
     
-    # top subplot: events as horizontal lines with dots at start and end time 
-    # of each event
-    ax1 = plt.subplot(211)
-    for event_index in range(0,len(event_times)):
-        event_time = [event_times[event_index],  
-                      event_times[event_index]+event_durations[event_index]]
-        event_frequency = [event_types[event_index],event_types[event_index]]
-        plt.plot(event_time, event_frequency, 'b.-')
-    plt.grid(True)
-    plt.ylabel('Flash Frequency')
-    plt.xlabel('time (sec.)')
+    # top subplot containing flash frequency over span of event
+    for event_number, interval in enumerate(event_intervals):
     
-    # bottom subplot: voltage in channels Fz and Oz as a function of time
-    plt.subplot(212, sharex=ax1) # share x axis
-    for channel_index in range(0, len(channels_to_plot)):
-        channel_name = channels_to_plot[channel_index]
-        plt.plot(t,eeg_data[np.where(channels == channel_name)[0][0]], 
-                 label=channel_name)
-    plt.grid(True)
-    plt.ylabel('Voltage (\u03BCV)')
-    plt.xlabel('time (sec.)')
-    plt.legend(loc='upper right')
-   
-    plt.suptitle(f'SSVEP Subject {subject} Raw Data')
-    plt.tight_layout()
-    # save to file
-    plt.savefig(f"SSVEP_S{subject}_rawdata.png")
-    plt.show()
+        # determine the event frequency to plot
+        if event_types[event_number] == "12hz":
+            event_frequency = 12
+    
+        else: 
+            event_frequency = 15
+        
+        # plottting the event frequency
+        sub_figure[0].hlines(xmin=interval[0], xmax=interval[1], y=event_frequency, label='o') # line
+        sub_figure[0].plot([interval[0], interval[1]], [event_frequency,event_frequency], 'bo') # start and end markers
+    
+    # bottom subplot contain raw data from specified electrodes
+    for channel_number, channel_name in enumerate(channels_to_plot):
+      
+        # identify EEG data to plot
+        channel_index = channels.index(channel_name) # index of channel of interest considering all channels      
+        eeg_data = data['eeg'][channel_index] # EEG data for the channel
+    
+        # plot EEG data in µV from channel
+        sub_figure[1].plot(t, eeg_data*(10**6), label=channel_name) 
+    
+    # format figure
+    # subplot 1: sample frequency at given time
+    sub_figure[0].set_xlabel('time(s)')
+    sub_figure[0].set_ylabel('Flash frequency')
+    sub_figure[0].set_yticks([12,15])
+    sub_figure[0].set_yticklabels(['12Hz','15Hz']) # made aware of set_yticklabels() existence by ChatGPT
+    sub_figure[0].grid()
+    
+    # subplot 2: EEG data over time
+    sub_figure[1].set_xlabel('time (s)')
+    sub_figure[1].set_ylabel('Voltage (µV)')
+    sub_figure[1].legend(loc='best') # place legend in best location given data
+    sub_figure[1].grid()
+    
+    # set plot title
+    figure.suptitle(f'SSVEP Subject {subject} Raw Data')
+    
+    # general appearance
+    figure.tight_layout()
+    
+    # save image
+    plt.savefig(f'SSVEP_S{subject}_rawdata.png')
+    
+    # inform user of plotting completion
+    print('Plotting raw data complete.')
 
-#%% Cell 3: Extract the epochs
-def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20):
-    '''
-    A function to extract epochs around each event and produce a variable to 
-    represent the time of each sample in each epoch, relative to the event 
-    onset. Epochs begin when event samples start and end 20 seconds later.
+#%% Part 3: Extract the Epochs
+
+def epoch_ssvep_data(data_dict, epoch_start_time=0, epoch_end_time=20, eeg_data=None):
+    """
+    Description
+    -----------
+    Function that takes in the data dictionary as well as relative start and end times for a given epoch to organize the EEG data by channel and event type.
+    
+    ***UPDATES***
+    Optional input of eeg_data added (default is None). EEG data has been converted to microvolts where applicable. epoch_times has been corrected (no longer uses linspace).
 
     Parameters
     ----------
-    data_dict : numpy.lib.npyio.NpzFile of size F where F represents the number of 
-    arrays within this object. Required.
-        This object behaves similarly to a dictionary and can be accessed using 
-        keys. Contains raw, unfiltered information about the dataset. Each 
-        array within the dictionary holds information corresponding to a 
-        different field. In our case, F=6 and corresponds to: eeg data in volts 
-        ("EEG"), channels ("channels"), sampling frequency in Hz ("fs"), the 
-        sample when each event occured ("event_samples"), the event durations 
-        ("event_durations"), and the event types ("event_types").
-    epoch_start_time : Int, optional
-        The time that each epoch begins in seconds, relative to the event 
-        sample. The default is 0.
-    epoch_end_time : Int, optional
-        The time that each epoch ends in seconds, relative to the event sample.
-        The default is 20.
+    data : dict, size F, where F is the number of fields (6)
+        Data from Python's MNE SSVEP dataset as a dictionary object, where the fields are relevant features of the data.
+    eeg_data : array of floats, size CxS, where C is the number of channels and S is the number of samples
+        Array containing a form of EEG data in volts.
+    epoch_start_time : int, optional
+        The relative time in seconds at which the epoch starts. The default is 0.
+    epoch_end_time : int, optional
+        The relative time in seconds at which the epoch ends. The default is 20.
+    eeg_data : array of floats, size CxS, where C is the number of channels and S is the number of samples, optional
+        An explicit entry of the EEG data that will be epoched. The default is None.
 
     Returns
     -------
-    eeg_epochs : Array of float. Size (E,C,T) where E is the number of epochs,
-    C is the number of EEG channels, and T is time points.
-        EEG data in uV.
-    epoch_times : Array of float. Size (T,) where T is time points.
-        The time in seconds of each time point in eeg_epochs, relative to the 
-        event.
-    is_trial_15Hz : Array of bool. Size (E,) where E is the number of epochs.
-        An indication of whether the light was flashing at 15 Hz during each
-        epoch. True if the light was flashing, false otherwise.
+    eeg_epochs : array of floats, size ExCxS, where E is the number of epochs, C is the number of channels, and S is the number of samples within the epoch
+        Array containing the EEG data in volts from each of the electrode channels organized by periods of time in which an event (12Hz or 15Hz flashes) occurs.
+    epoch_times : array of floats, size Sx1, where S is the number of samples within each epoch
+        Array containing the relative times in seconds of each sample within an epoch.
+    is_trial_15Hz : array of boolean, size Ex1, where E is the number of epochs (or events)
+        Array containing True if the epoch is an event at 15Hz, False if the epoch is an event at 12Hz.
 
-    '''
-    #unpack data_dict
-    eeg_data = data_dict['eeg']/1e-6   # convert to microvolts
-    fs = data_dict['fs']                # sampling frequency
-    event_samples = data_dict['event_samples']    #index to start of events
-    event_types = data_dict['event_types']    # image frequency of during event
+    """
+  
+    # extract data
+    if eeg_data is None:
+        eeg_data = (data_dict['eeg'])*(10**6) # defaulting with dictionary extraction, converted to µV    
+    channels = list(data_dict['channels']) # convert to list
+    fs = data_dict['fs']
+    event_durations = data_dict['event_durations'].astype(int) # cast to contain int instead of float
+    event_samples = data_dict['event_samples']
+    event_types = data_dict['event_types']
+    samples_per_epoch = int(fs*(epoch_end_time-epoch_start_time)) # convert to int
     
-    # calculate epoch parameters
-    epoch_start_indexes = event_samples + int(epoch_start_time * fs)
-    epoch_durations = int((epoch_end_time - epoch_start_time) * fs)
-    epoch_times = np.arange(epoch_start_time, epoch_end_time, 1/fs)  #seconds
-    epoch_count = len(event_samples)
+    # preallocate array to contain epochs
+    eeg_epochs = np.zeros([len(event_samples),len(channels), samples_per_epoch])
     
-    #initaialize variables to store epochs and indication of whether 15 Hz trial
-    eeg_epochs = np.zeros( ( epoch_count, 
-                             eeg_data.shape[0], 
-                             len(epoch_times) )
-                         ) 
-    is_trial_15Hz = np.zeros(epoch_count, dtype=bool)
+    # load data into array by epoch
+    # code adapted from ChatGPT based on our original code (efficiency)
+    for epoch, start_index in enumerate(event_samples): # epoch number is 1st value, content of event_samples at epoch number (i.e. the starting index) is 2nd
     
-    #populate
-    for event_index in range(0, len(event_samples)):
-        start_eeg_index = epoch_start_indexes[event_index]
-        stop_eeg_index = start_eeg_index + epoch_durations
-        eeg_epochs[event_index,:,:]  \
-                = eeg_data[:,start_eeg_index:stop_eeg_index]
-        is_trial_15Hz[event_index] =   event_types[event_index] == '15hz'
+        end_index = start_index + event_durations[epoch] # find the final sample index for an epoch
         
+        eeg_epochs[epoch] = eeg_data[:,start_index:end_index] # for the epoch, add EEG data from all channels (:) for every sample between the start and end indices (start_index:end_index)
+            
+    # create array containing the times for each sample in the epoch
+    epoch_times = np.arange(epoch_start_time, epoch_end_time, 1/fs)
+    
+    # create boolean array containing True if the event is a 15Hz sample, False if 12Hz
+    is_trial_15Hz = np.array([True if event == '15hz' else False for event in event_types])
+    
     return eeg_epochs, epoch_times, is_trial_15Hz
 
-#%% Cell 4: Take Fourier transform & get frequency spectra
-def get_frequency_spectrum(eeg_epochs, fs, remove_DC=False):
-    '''
-    A function to calculate the Fourier transform on each channel in each epoch.
-    An optional parameter, remove_DC has been added to allow users to indicate 
-    whether they would like to remove the DC offset from EEG signal. This can 
-    be useful because as the DC offset is anmartifacts and may be large which 
-    will unnecessarily decrease the normalized power of the signal. Setting 
-    this variable to False retains the DC offset.
-    
-    Parameters
-    ----------
-    eeg_epochs : Array of float. Size (E,C,T) where E is the number of epochs,
-    C is the number of EEG channels, and T is time points. Required.
-        EEG data in uV.
-    fs : Int, required.
-        The sampling frequency in Hz.
-    remove_DC: Bool, optional.
-        An indication of whether or not to remove the DC offset. The default is 
-        False.
+#%% Part 4: Take the Fourier Transform
 
-    Returns
-    -------
-    eeg_epochs_fft : Array of complex float. Size (E,C,F) where E is the number 
-    of epochs, C is the number of EEG channels, and F is the number of frequencies.
-    The number of frequencies is equal to (number of time points/2)+1 when the 
-    number of time points is even (as it is in our data) and is equal to 
-    (number of time points +1)/2 if the number of time points is odd.
-        Fourier transformed EEG epochs. Values represent the frequency spectra.
-    fft_frequencies : Array of float. Size (F,) where F is the number of 
-    frequencies. 
-        Frequencies corresponding to columns in eeg_epochs_fft such that a 
-        frequency spectrum value within eeg_epochs in column i corresponds to
-        the frequency in fft_frequencies at row i. Frequencies range from 0 to
-        fs/2 where fs is the sampling frequency, in accordance with the Nyquist 
-        Criterion.
-
-    '''
-    # remove DC offset if specified by parameter
-    if remove_DC:
-        means = np.mean(eeg_epochs, axis = -1)
-        for time_index in range(0,eeg_epochs.shape[-1]):
-            eeg_epochs[:,:,time_index] -= means
-            
-    # perform Fourier transform on each channel in each epoch
-    eeg_epochs_fft = np.fft.rfft(eeg_epochs, axis=-1)
-    
-    # get corresponding frequencies
-    # d represents sample spacing (inverse of sample rate)
-    fft_frequencies = np.fft.rfftfreq(eeg_epochs.shape[2], d=1/fs)
-    
-    return eeg_epochs_fft, fft_frequencies   
-
-#%%
-def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, 
-                        channels, channels_to_plot, subject):
-    '''
-    Plots the mean frequency spectrum across trials and saves an image of the 
-    plot(s) to SSVEP_S{subject}_power_spectrum{figure_index).png within the 
-    current directory. 
+def get_frequency_spectrum(eeg_epochs, fs):
+    """
+    Description
+    -----------
+    Function that takes the Fourier Transform of the epoched EEG data and provides the corresponding frequencies.
 
     Parameters
     ----------
-    eeg_epochs_fft : Array of complex float. Size (E,C,F) where E is the number 
-    of epochs, C is the number of EEG channels, and F is the number of frequencies.
-    The number of frequencies is equal to (number of time points/2)+1 when the 
-    number of time points is even (as it is in our data) and is equal to 
-    (number of time points +1)/2 if the number of time points is odd. Required.
-        Fourier transformed EEG epochs. Values represent the frequency spectra.
-    fft_frequencies : Array of float. Size (F,) where F is the number of 
-    frequencies. Required.
-        Frequencies corresponding to columns in eeg_epochs_fft such that a 
-        frequency spectrum value within eeg_epochs in column i corresponds to
-        the frequency in fft_frequencies at row i. 
-    is_trial_15Hz : Array of bool. Size (E,) where E is the number of epochs.
-    Required.
-        An indication of whether the light was flashing at 15 Hz during each
-        epoch. True if the light was flashing, false otherwise.
-    channels : Array of str. Size (CO,) where CO is the number of channels 
-    included in the original dataset. Required.
-        The name of each channel included in the original dataset ex. Fz.
-    channels_to_plot : List of str.  Required.
-        EEG data is plotted for these channels in subplots at 2 channels/figure.
-    subject : Int, required.
-        The number of the subject for whom data will be plotted.
+    eeg_epochs : array of floats, size ExCxS, where E is the number of epochs, C is the number of channels, and S is the number of samples within the epoch
+        Array containing the EEG data in volts from each of the electrode channels organized by periods of time in which an event (12Hz or 15Hz flashes) occurs.
+    fs : array of float, size 1
+        The sampling frequency of the data obtained in the 'fs' key of data_dict.
 
     Returns
     -------
-    spectrum_dB_12Hz : Array of float. Size (C,F) where E is the number of epochs
-    and F is the number of frequencies.
-        The mean power spectrum of 12 Hz trials in dB. 
-    spectrum_dB_15Hz : Array of float. Size (C,F) where E is the number of epochs
-    and F is the number of frequencies.
-        The mean power spectrum of 15 Hz trials in dB.
-        
+    eeg_epochs_fft : array of complex numbers, size ExCx((fs/2)+1), where E is the number of epochs, C is the number of channels, and fs is the sampling frequency
+        The EEG data converted to the frequency space for each epoch and channel.
+    fft_frequencies : array of floats, size (fs/2)+1, where fs is the sampling frequency
+        Array containing sample frequencies.
 
-    '''
-    # convert spectra to units of power
-    # we do not take the absolute value of the spectrum for each channel and
-    # trial prior to this step becuase we are multiplying the value returned
-    # by the fft by its complex conjugate to get the power. The calculation
-    # of the absolute value is implicit in this statement and thus does not
-    # need to be performed separately. 
-    eeg_power = eeg_epochs_fft * np.conj(eeg_epochs_fft)
+    """
+  
+    # take the Fourier Transform of the epoched EEG data
+    eeg_epochs_fft = np.fft.rfft(eeg_epochs)
     
-    # save event frequencies to variables (str and int)
-    frequencies = ['12Hz', '15Hz']
-    freqs = [12,15]
+    # find the corresponding frequencies from the epoched EEG data
+    fft_frequencies = np.fft.rfftfreq(n=eeg_epochs.shape[-1], d=1/fs) # n is the number of samples in the signal (final dimension) in eeg_epochs), d is the inverse of sampling frequency
+  
+    return eeg_epochs_fft, fft_frequencies
+
+#%% Part 5: Plot the Power Spectra
+
+def plot_power_spectrum(eeg_epochs_fft, fft_frequencies, is_trial_15Hz, channels, channels_to_plot, subject, is_plotting=True, event_15_normalization_factor=None, event_12_normalization_factor=None):
+    """
+    Description
+    -----------
+    Function that uses the Fourier Transform of the epoched EEG data to compute and plot the power spectra of different electrodes.
     
-    # calculations for 12 Hz trials
-    eeg_power_12Hz = eeg_power[~is_trial_15Hz,:,:]
-    mean_power_12Hz = np.abs(np.mean(eeg_power_12Hz, axis=0))  # n_channels x n_time
-    
-    # storing variables for normalization
-    max_power_12Hz = np.max(mean_power_12Hz, axis=1)   # in each channel
-    channel_count = mean_power_12Hz.shape[0] 
-    
-    # initialize variable to hold normalized powers
-    normalized_power_12Hz = np.zeros(mean_power_12Hz.shape)
-    
-    #normalize each channel
-    for channel_index in range(0,channel_count):
-        normalized_power_12Hz[channel_index,:]       \
-                 = mean_power_12Hz[channel_index,:]   \
-                       /max_power_12Hz[channel_index]
-                       
-    # convert to decibel units
-    spectrum_dB_12Hz = 10 * np.log10(normalized_power_12Hz)
-    
-    # calculations for 15 Hz trials
-    eeg_power_15Hz = eeg_power[is_trial_15Hz,:,:]
-    mean_power_15Hz = np.abs(np.mean(eeg_power_15Hz, axis=0))
-    
-    # storing variables for normalization
-    max_power_15Hz = np.max(mean_power_15Hz, axis=1)
-    channel_count = mean_power_15Hz.shape[0]
-    
-    # initialize variable to hold normalized powers
-    normalized_power_15Hz = np.zeros(mean_power_15Hz.shape)
-    
-    #normalize each channel
-    for channel_index in range(0,channel_count) :
-        normalized_power_15Hz[channel_index,:]      \
-                 = mean_power_15Hz[channel_index,:]  \
-                        /max_power_15Hz[channel_index]
-    
-    # convert to decibel units
-    spectrum_dB_15Hz = 10 * np.log10(normalized_power_15Hz)
-   
-    #determine number of figures needed to plot the requested 
-                                            # channels at 2 channels/figure
-    figure_count = math.ceil(len(channels_to_plot)/2)
-    for figure_index in range(0, figure_count):
-        channel_pair = channels_to_plot[figure_index*2:figure_index*2 + 2]
-        
-        # initialize figure for a pair of channels
-        plt.figure(clear=True)        
-        ax1 = plt.subplot(211)
-        
-        for pair_index in range(0, len(channel_pair)):
-            channel_name = channels_to_plot[figure_index*2 + pair_index]
-            power_dB = spectrum_dB_12Hz[np.where(channels == channel_name)][0,:]
-            for frequency_index in range(0, 2):
-                plt.plot(fft_frequencies, power_dB,
-                         label=frequencies[frequency_index])
-                power_dB = spectrum_dB_15Hz[np.where(channels == channel_name)][0,:]
-            
-            #annotate graph
-            plt.grid(True)
-            plt.xlabel('Freqeuncy (Hz)')
-            plt.ylabel('Power (dB)')
-            plt.xlim(0, 80)
-            plt.ylim(-80,0)
-            plt.legend(loc='upper right')
-            #mark 12Hz and 15Hz
-            plt.plot([freqs[0], freqs[0]],[-80, -50],'k--')
-            plt.plot([freqs[1], freqs[1]],[-80, -50],'k--')
-            plt.title(f'Channel {channels_to_plot[figure_index*2+pair_index]} Frequency Content for SSVEP S{subject}')
-            
-            #second subplot
-            if pair_index == 0:
-                plt.subplot(212, sharex=ax1)
-        
-        plt.tight_layout()
-        plt.savefig(f"SSVEP_S{subject}_power_spectrum{figure_index}.png")
-    
-    
-    return spectrum_dB_12Hz, spectrum_dB_15Hz   
-        
-    
-#%%
-def plot_harmonics(spectrum_dB_12Hz, spectrum_dB_15Hz, channels, \
-                   fft_frequencies, subject ):
-    '''
-    This calculates the mean of the 20 frequency bin above and below each 
-    harmonic and returns the number of dB by which the harmonic exceeds its
-    neighbors.  It does this for each electrode and then graphs the results. 
-    Figures are saved to disk
+    ***UPDATES***
+    Optional input of is_plotting added (default is True) that gives the user the option to suppress the plot when generating the power spectra. Optional inputs of event_15_normalization_factor and event_12_normalization_factor added (defaults are None) that give the user the option to normalize the epoched data to a different dataset. event_15_normalization_factor and event_12_normalization_factor are also outputs and give the factors to which the data were normalized (which may or may not contain the maximum mean powers for the dataset of interest depending on the input).
 
     Parameters
     ----------
-    spectrum_dB_12Hz : Array of float. Size (CO,F) where CO is the number of 
-    channels in the original dataset and F is the number of frequencies. Required.
-        The mean power spectrum of 12 Hz trials in dB.
-    spectrum_dB_15Hz : Array of float. Size (CO,F) where CO is the number of 
-    channels in the original dataset and F is the number of frequencies. Required.
-        The mean power spectrum of 15 Hz trials in dB.
-    channels : Array of str. Size (CO,) where CO is the number of channels 
-    included in the original dataset. Required.
-        The name of each channel included in the original dataset ex. Fz.
-    fft_frequencies : Array of float. Size (F,) where F is the number of 
-    frequencies. Required.
-        Frequencies corresponding to columns in eeg_epochs_fft such that a 
-        frequency spectrum value within eeg_epochs in column i corresponds to
-        the frequency in fft_frequencies at row i. 
-    subject : Int, required
-        The number of the subject for whom data will be plotted.
+    eeg_epochs_fft : array of complex numbers, size ExCx((fs/2)+1), where E is the number of epochs, C is the number of channels, and fs is the sampling frequency
+        The EEG data converted to the frequency space for each epoch and channel.
+    fft_frequencies : array of floats, size (fs/2)+1, where fs is the sampling frequency
+        Array containing sample frequencies.
+    is_trial_15Hz : array of boolean, size Ex1, where E is the number of epochs (or events)
+        Array containing True if the epoch is an event at 15Hz, False if the epoch is an event at 12Hz.
+    channels : array of str, size Cx1, where C is the number of channels in the dataset (32)
+        Array containing strings with the name of each electrode/channel in the dataset.
+    channels_to_plot : list, size Cx1, where C is the number of channels to be plotted
+        Input containing which channels will be plotted.
+    subject : int
+        The subject for which the data will be loaded.
+    is_plotting : boolean, optional
+        A boolean input variable that determines whether the function call will produce a plot. The default is True.
+    event_15_normalization_factor : array of floats, size Cx1, where C is the number of channels, optional
+        An array containing the maximum power for the 15Hz stimulus at each channel to serve as a normalization factor. The default is None.
+    event_12_normalization_factor : array of floats, size Cx1, where C is the number of channels, optional
+        An array containing the maximum power for the 12Hz stimulus at each channel to serve as a normalization factor. The default is None.
 
     Returns
     -------
-    None.
+    spectrum_db_15Hz : array of floats, size Cx((fs/2)+1), where C is the number of channels and fs is the sampling frequency
+        Array containing the power spectrum of the 15Hz events for each channel.
+    spectrum_db_12Hz : array of floats, size Cx((fs/2)+1), where C is the number of channels and fs is the sampling frequency
+        Array containing the power spectrum of the 12Hz events for each channel.
+    event_15_normalization_factor : array of floats, size Cx1, where C is the number of channels, optional
+        An array containing the maximum power of some dataset for the 15Hz stimulus at each channel that can serve as a normalization factor for other data.
+    event_12_normalization_factor : array of floats, size Cx1, where C is the number of channels, optional
+        An array containing the maximum power of some dataset for the 12Hz stimulus at each channel that can serve as a normalization factor for other data.
 
-    '''
+    """
 
-    channel_count = len(channels)
-    df = fft_frequencies[1]-fft_frequencies[0]
-    # harmonics to of 12 and 15 Hz to assess.
-    harmonics = np.int32(np.array([[12,24,36,48],[15,30,45,60]])/df)
-    harmonic_labels = ['Fundamental', '2nd Harmonic',
-                       '3rd Harmonic', '4th Harmonic']
+    # convert channels to list
+    channels = list(channels)
     
-    power_dB = np.vstack((spectrum_dB_12Hz, spectrum_dB_15Hz))
-    delta_dB = np.zeros((channel_count,2,4))
-    near_by = 20  #compare harmonic magnitude to harmonic +/- near_by indicies   
- 
-    for channel_index in range(0,channel_count):
-        for freq_index in range(0,2):    # 12 AND 15 Hz
-            for harmonic_index in range(0,4):   #assess up to 4th hamonic
-                fft_index = harmonics[freq_index, harmonic_index]
-                chan_ind = channel_index + (freq_index * channel_count)
-                mean_of_neighbors = ( np.sum(power_dB[chan_ind,               \
-                                             fft_index-near_by:fft_index]     \
-                                            ) +                               \
-                                      np.sum(power_dB[chan_ind,               \
-                                             fft_index+1:fft_index+1+near_by] \
-                                            )                                 \
-                                     ) / (2 * near_by)
-                # dB of harmonic above neighbors    
-                delta_dB[channel_index,freq_index,harmonic_index] =           \
-                        power_dB[chan_ind, fft_index] - mean_of_neighbors
+    # calculate power spectra
+    # isolate frequency spectra by event type (12Hz or 15Hz)
+    event_15 = eeg_epochs_fft[is_trial_15Hz,:,:]
+    event_12 = eeg_epochs_fft[~is_trial_15Hz,:,:]
     
-    # For 12 Hz harmonics                    
-    plt.figure(figsize=(12,4), clear=True)          
-    for harmonic_index in range(0,4):                 
-        plt.plot(channels[np.array(range(0,len(channels)))],     \
-                 delta_dB[:,0,harmonic_index], '.-',              \
-                 label=harmonic_labels[harmonic_index])
-    plt.grid(True)
-    plt.legend(loc='upper left')
-    plt.xlabel('Channel Name')
-    plt.xticks(rotation = 45)
-    plt.ylabel('db Above Background')
-    plt.title(f'dB Above Background, 12Hz Harmonics by Channel (S{subject})')
-    plt.tight_layout()
-    plt.savefig(f'harmmonics12S{subject}.png')
-
+    # calculate power for event type
+    event_15_power = (np.abs(event_15))**2
+    event_12_power = (np.abs(event_12))**2 
     
-    # For 15 Hz harmonics          
-    plt.figure(figsize=(12,4), clear=True)
-    for harmonic_index in range(0,4):                 
-        plt.plot(channels[np.array(range(0,len(channels)))],     \
-                 delta_dB[:,1,harmonic_index], '.-',              \
-                 label=harmonic_labels[harmonic_index])
-    plt.grid(True)
-    plt.legend(loc='upper left')
-    plt.xlabel('Channel Name')
-    plt.xticks(rotation = 45)
-    plt.ylabel('db Above Background')
-    plt.title(f'dB Above Background, 15Hz Harmonics by Channel (S{subject})')
-    plt.tight_layout()
-    plt.savefig(f'harmmonics15S{subject}.png')
-    plt.show()
-
-
-                         
-                        
+    # calculate mean power for event type
+    event_15_power_mean = event_15_power.mean(0)
+    event_12_power_mean = event_12_power.mean(0)
+    
+    # allow data to be normalized to itself by finding the maximum power in each channel for the data
+    if event_15_normalization_factor is None:
+    
+        # find maximum power by channel
+        event_15_normalization_factor = event_15_power_mean.max(1)
+    
+    if event_12_normalization_factor is None:
+        # find maximum power by channel
+        event_12_normalization_factor = event_12_power_mean.max(1)
+    
+    # calculate normalized power for event type
+    # preallocate arrays    
+    normalized_event_15_power_mean = np.zeros(event_15_power_mean.shape)
+    normalized_event_12_power_mean = np.zeros(event_12_power_mean.shape)
+    
+    # normalize to max (all in a channel) - uses the given input if not None
+    for channel_index in range(len(channels)):
+        
+        normalized_event_15_power_mean[channel_index,:] = event_15_power_mean[channel_index,:]/event_15_normalization_factor[channel_index]
+        normalized_event_12_power_mean[channel_index,:] = event_12_power_mean[channel_index,:]/event_12_normalization_factor[channel_index]
+    
+    # calculate spectra for event type
+    spectrum_db_15Hz = 10*(np.log10(normalized_event_15_power_mean))
+    spectrum_db_12Hz = 10*(np.log10(normalized_event_12_power_mean))
+    
+    # plotting
+    if is_plotting == True:
+        
+        # inform user of plotting
+        print('\nPlotting frequency data...')
+        
+        # isolate channel being plotted
+        channel_to_plot = [channels.index(channel_name) for channel_name in channels_to_plot]
+        
+        # set up figure
+        figure, channel_plot = plt.subplots(len(channels_to_plot), sharex=True)
+        
+        for plot_index, channel in enumerate(channel_to_plot): # plot_index to access a subplot
+            
+            # plot the power spectra by event type
+            channel_plot[plot_index].plot(fft_frequencies, spectrum_db_12Hz[channel,:], color='red')
+            channel_plot[plot_index].plot(fft_frequencies, spectrum_db_15Hz[channel,:], color='green')
+            
+            # formatting subplot
+            channel_plot[plot_index].set_xlim(0,80)
+            channel_plot[plot_index].set_xlabel('frequency (Hz)')
+            channel_plot[plot_index].tick_params(labelbottom=True) # shows axis values for each subplot when sharex=True, adapted from Stack Overflow (function and keywords)
+            channel_plot[plot_index].set_ylabel('power (dB)')
+            channel_plot[plot_index].set_title(f'Channel {channels_to_plot[plot_index]}')
+            channel_plot[plot_index].legend(['12Hz','15Hz'], loc='best')
+            channel_plot[plot_index].grid()
+            
+            # plot dotted lines at 12Hz and 15Hz
+            channel_plot[plot_index].axvline(12, color='red', linestyle='dotted')
+            channel_plot[plot_index].axvline(15, color='green', linestyle='dotted')
+        
+        # format overall plot
+        figure.suptitle(f'SSVEP Subject S{subject} Frequency Content')
+        figure.tight_layout()
+        
+        # save image
+        plt.savefig(f'SSVEP_S{subject}_frequency_content.png')
+        
+        # inform user of plotting completion
+        print('Plotting frequency data complete.')
+        
+    return spectrum_db_15Hz, spectrum_db_12Hz, event_15_normalization_factor, event_12_normalization_factor    
