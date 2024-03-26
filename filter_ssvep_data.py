@@ -301,11 +301,6 @@ def plot_ssvep_amplitudes(data, envelope_a, envelope_b, channel_to_plot, ssvep_f
     
 #%% Part 6: Examine the Spectra
 
-"""
-    TODO:
-        - Way to avoid adding the optional inputs (doesn't ask for subject or filter_frequency)?
-"""
-
 def plot_filtered_spectra(data, filtered_data, envelope, channels=['Fz','Oz'], subject=1, filter_frequency=15):
     '''
     Description
